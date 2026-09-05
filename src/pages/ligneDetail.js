@@ -43,7 +43,10 @@ export async function render({ params }) {
       .ligne-detail-layout { display: grid; grid-template-columns: 1fr; gap: var(--sp-5); align-items: start; }
       @media (min-width: 900px) { .ligne-detail-layout { grid-template-columns: 1.1fr 1.3fr; } }
       .ligne-map-col { position: sticky; top: calc(var(--topbar-h, calc(var(--header-h) + var(--safe-top))) + var(--sp-4)); }
-      .ligne-map { height: 380px; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--color-border); }
+      .ligne-map {
+        height: 380px; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--color-border);
+        position: relative; isolation: isolate;
+      }
       @media (max-width: 899px) { .ligne-map-col { position: static; } .ligne-map { height: 300px; } }
       .ligne-stops-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
       .ligne-stops-list li {

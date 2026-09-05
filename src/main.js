@@ -62,10 +62,8 @@ subscribe(updateBoot);
 /* ------------------------------------------------------------------ */
 const app = document.getElementById('app');
 app.innerHTML = `
-  <div id="site-topbar">
-    ${disclaimerBannerHtml()}
-    ${headerHtml()}
-  </div>
+  ${headerHtml()}
+  ${disclaimerBannerHtml()}
   <main id="outlet" tabindex="-1"></main>
   ${bottomNavHtml()}
   ${footerHtml()}

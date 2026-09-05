@@ -3,11 +3,9 @@
    (#site-topbar) pour que le bandeau s'affiche AU-DESSUS du header plutôt que
    d'être recouvert par lui. Sa hauteur réelle (variable si le texte du bandeau
    passe sur plusieurs lignes) est mesurée en JS — voir mountLayoutBehavior(). */
-#site-topbar {
+.site-header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   padding-top: var(--safe-top);
-}
-.site-header {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -46,8 +44,11 @@
 }
 .mobile-menu a.is-active { color: var(--color-blue); }
 
-/* Bandeau disclaimer -------------------------------------------------- */
+/* Bandeau disclaimer ---------------------------------------------------
+   Défile avec le reste de la page (pas de position fixe) : on le place juste sous le
+   header fixe via --topbar-h (hauteur réelle du header, mesurée en JS). */
 .disclaimer-banner {
+  margin-top: var(--topbar-h, calc(var(--header-h) + var(--safe-top)));
   background: var(--color-blue-50); color: var(--color-blue-900);
   font-size: var(--fs-label); border-bottom: 1px solid var(--color-blue-50);
 }

@@ -96,7 +96,7 @@ main {
   main { padding-bottom: var(--sp-8); }
 }
 
-.section { padding: var(--sp-6) 0; }
+.section { padding-top: var(--sp-6); padding-bottom: var(--sp-6); }
 .section-alt { background: var(--color-surface-alt); }
 
 /* Cartes — filet 1px, rayon 8px, PAS d'ombre */

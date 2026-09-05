@@ -152,20 +152,20 @@ export function mountLayoutBehavior() {
   mountTopbarHeight();
 }
 
-/* Mesure la hauteur réelle du bandeau disclaimer + header (variable si le texte du bandeau
-   passe sur plusieurs lignes selon la largeur d'écran) et l'expose en --topbar-h, pour que le
-   contenu de la page (main, menu mobile, barres latérales collantes) se cale dessous sans jamais
-   passer dessous le bandeau ni laisser un vide. Recalculée au chargement, au redimensionnement et
-   à chaque changement d'orientation. */
+/* Mesure la hauteur réelle du header fixe (variable selon la zone de sécurité de l'appareil)
+   et l'expose en --topbar-h, pour que le bandeau disclaimer (qui défile désormais avec la page,
+   juste en dessous du header) et le contenu (main, menu mobile) se calent dessous sans jamais
+   passer sous le header ni laisser un vide. Recalculée au chargement, au redimensionnement et à
+   chaque changement d'orientation. */
 function mountTopbarHeight() {
-  const topbar = document.getElementById('site-topbar');
-  if (!topbar) return;
+  const header = document.getElementById('site-header');
+  if (!header) return;
   const apply = () => {
-    document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
+    document.documentElement.style.setProperty('--topbar-h', header.offsetHeight + 'px');
   };
   apply();
   if ('ResizeObserver' in window) {
-    new ResizeObserver(apply).observe(topbar);
+    new ResizeObserver(apply).observe(header);
   } else {
     window.addEventListener('resize', apply);
   }

@@ -1,7 +1,7 @@
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
 import {
   routeColors, nextDeparturesForStop, nowSecsLocal, secsToTime,
-  shapesForRoute, allDeparturesForStopOnDate,
+  shapesForRoute, allDeparturesForStopOnDate, headsignForStopOnRoute,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 import { createRouteMap } from '../components/routeMap.js';
@@ -52,11 +52,12 @@ function buildFullScheduleHtml(data, indices, stopId, date) {
     .map(({ route, items }) => {
       const type = routeType(route?.route_type);
       const { bg, text } = routeColors(route, type);
+      const headsign = route ? headsignForStopOnRoute(data, indices, route.route_id, stopId) : null;
       return `
         <div class="arret-schedule-group">
           <div class="arret-schedule-group-head">
             <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(route?.route_short_name || '?')}</span>
-            <span class="text-muted">${escapeHtml(route?.route_long_name || '')}</span>
+            ${headsign ? `<span class="text-muted">→ ${escapeHtml(headsign)}</span>` : ''}
           </div>
           <div class="arret-schedule-times">
             ${items.map((r) => `
@@ -74,7 +75,10 @@ export async function render({ params }) {
     <style>
       .arret-lines-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0; }
       .arret-lines-list a { text-decoration: none; }
-      .arret-map { height: 260px; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--color-border); margin: var(--sp-4) 0; }
+      .arret-map {
+        height: 260px; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--color-border); margin: var(--sp-4) 0;
+        position: relative; isolation: isolate;
+      }
       .arret-deps-list { display: flex; flex-direction: column; gap: var(--sp-2); }
       .arret-dep-row {
         display: flex; align-items: center; gap: var(--sp-3); width: 100%;
