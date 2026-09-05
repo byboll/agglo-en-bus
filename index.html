@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>L'Agglo en bus — horaires, lignes et itinéraires (démonstrateur non-officiel)</title>
+  <meta name="description" content="Site démonstrateur non-officiel du réseau de bus L'Agglo en bus (Gap-Tallard-Durance) : horaires, lignes, arrêts, carte et calcul d'itinéraire à partir des données GTFS publiques." />
+  <meta name="theme-color" content="#1414c8" />
+  <meta name="color-scheme" content="light" />
+  <meta name="robots" content="noindex, follow" />
+
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bricolage+Grotesque:wght@600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <meta property="og:title" content="L'Agglo en bus — démonstrateur non-officiel" />
+  <meta property="og:description" content="Horaires, lignes, arrêts, carte et itinéraires du réseau de bus de Gap-Tallard-Durance — projet personnel indépendant, données GTFS publiques." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/icons/icon-512.png" />
+</head>
+<body>
+  <a href="#outlet" class="skip-link">Aller au contenu</a>
+
+  <div id="gtfs-boot-overlay" role="status" aria-live="polite">
+    <img class="boot-logo" src="/icons/badge-en-bus.png" alt="" aria-hidden="true" />
+    <div class="boot-bar-wrap"><div class="boot-bar" id="boot-bar"></div></div>
+    <div class="boot-label" id="boot-label">Récupération des données du réseau…</div>
+  </div>
+
+  <div id="app"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

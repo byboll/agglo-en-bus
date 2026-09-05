@@ -1,0 +1,94 @@
+/* Calculateur d'itinéraire — formulaire + résultats accordéon + mini-carte du trajet choisi. */
+
+.itin-form { display: flex; flex-direction: column; }
+
+.itin-swap-row { display: flex; align-items: flex-end; gap: var(--sp-2); }
+.itin-stop-field { flex: 1; position: relative; min-width: 0; }
+.itin-swap-btn { flex-shrink: 0; margin-bottom: var(--sp-4); }
+
+.itin-suggest {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 30;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-card); margin-top: 4px; max-height: 260px;
+  overflow-y: auto; padding: var(--sp-1);
+}
+.itin-suggest-item {
+  display: flex; align-items: baseline; gap: var(--sp-2); width: 100%; text-align: left;
+  background: none; border: none; cursor: pointer; padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-card); font-size: var(--fs-label); min-height: 44px; color: var(--color-ink);
+}
+.itin-suggest-item:hover, .itin-suggest-item:focus-visible { background: var(--color-surface-alt); }
+.itin-suggest-empty { padding: var(--sp-3); color: var(--color-muted); font-size: var(--fs-label); }
+
+.itin-datetime-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.itin-datetime-row .field { flex: 1 1 140px; min-width: 0; }
+.itin-datetime-row .input { min-width: 0; }
+
+.itin-results-section { margin-top: var(--sp-6); }
+.itin-results-layout { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+.itin-journey-card { padding: 0; overflow: hidden; }
+.itin-journey-header {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); min-height: 48px;
+}
+.itin-journey-header:hover { background: var(--color-surface-alt); }
+.itin-journey-header-row { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
+.itin-journey-times { font-size: 1.1rem; font-weight: 600; }
+.itin-journey-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.itin-journey-legs { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.itin-leg-arrow { color: var(--color-muted); }
+.itin-walk-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6em; }
+.itin-journey-caret { margin-left: auto; color: var(--color-muted); transition: transform .15s ease; }
+.itin-journey-header[aria-expanded='true'] .itin-journey-caret { transform: rotate(180deg); }
+
+.itin-journey-detail {
+  border-top: 1px solid var(--color-border); padding: var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.itin-step { font-size: var(--fs-label); }
+.itin-step-row { display: flex; gap: var(--sp-3); align-items: baseline; }
+.itin-step-line {
+  display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-1) 3.4em; flex-wrap: wrap;
+  width: calc(100% - 3.4em); text-align: left; background: none; border: none; cursor: pointer;
+  font: inherit; color: inherit; padding: var(--sp-1) 0; border-radius: var(--radius-card);
+}
+.itin-step-line:hover { background: var(--color-surface-alt); }
+.itin-step-line-hint { margin-left: auto; font-size: var(--fs-eyebrow); color: var(--color-blue); white-space: nowrap; }
+.itin-step-walk { color: var(--color-muted); }
+.itin-step-walk-path { margin-top: 2px; }
+.itin-step-inter { margin: 0 0 var(--sp-1) 3.4em; }
+.itin-step-inter summary { cursor: pointer; color: var(--color-blue); font-size: var(--fs-eyebrow); list-style: none; }
+.itin-step-inter summary::-webkit-details-marker { display: none; }
+.itin-step-inter summary::before { content: '▸ '; }
+.itin-step-inter[open] summary::before { content: '▾ '; }
+.itin-step-inter-list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.itin-step-inter-list li { display: flex; gap: var(--sp-2); color: var(--color-ink-soft); }
+
+.itin-constraint-row { margin-bottom: var(--sp-4); }
+.itin-constraint-row .segmented { margin-top: var(--sp-1); }
+
+.itin-options { margin: var(--sp-2) 0 var(--sp-4); border: 1px solid var(--color-border); border-radius: var(--radius-card); padding: var(--sp-1) var(--sp-4); }
+.itin-options summary { cursor: pointer; padding: var(--sp-3) 0; font-weight: 600; list-style: none; }
+.itin-options summary::-webkit-details-marker { display: none; }
+.itin-options summary::before { content: '⚙️ '; }
+.itin-options-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-4); padding-bottom: var(--sp-4); }
+@media (min-width: 700px) { .itin-options-grid { grid-template-columns: 1fr 1fr; } }
+.itin-options-item label { display: block; font-size: var(--fs-label); color: var(--color-ink-soft); margin-bottom: var(--sp-2); }
+.itin-options-item .itin-options-row { display: flex; align-items: center; gap: var(--sp-3); }
+.itin-options-item input[type="range"] { flex: 1; accent-color: var(--color-blue); }
+.itin-options-val { font-family: var(--font-mono); font-size: var(--fs-label); min-width: 4.5em; text-align: right; }
+
+.itin-map-col { display: flex; flex-direction: column; }
+.itin-map {
+  width: 100%; height: 280px; border-radius: var(--radius-card); overflow: hidden;
+  background: var(--color-surface-alt);
+}
+.itin-map .leaflet-popup-content-wrapper { border-radius: var(--radius-card); box-shadow: none; border: 1px solid var(--color-border); }
+.itin-map .leaflet-popup-tip { box-shadow: none; border: 1px solid var(--color-border); }
+
+@media (min-width: 900px) {
+  .itin-results-layout { display: grid; grid-template-columns: 1fr 380px; align-items: start; gap: var(--sp-5); }
+  .itin-map-col { position: sticky; top: calc(var(--topbar-h, calc(var(--header-h) + var(--safe-top))) + var(--sp-4)); }
+  .itin-map { height: 420px; }
+}

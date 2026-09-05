@@ -1,0 +1,77 @@
+/* ==========================================================================
+   Design tokens — Charte graphique digitale "L'Agglo en bus"
+   Communauté d'agglomération Gap-Tallard-Durance — v1.0, septembre 2026
+   ========================================================================== */
+:root {
+  /* Palette officielle */
+  --color-blue: #1414c8;      /* Bleu Agglo — Pantone 2145 C — porte l'interface */
+  --color-blue-700: #0f0f9c;  /* variante hover/active, dérivée */
+  --color-blue-900: #0a0a6e;
+  --color-blue-50: #eceafd;
+  --color-fluo: #b9e900;      /* Vert fluo — Pantone 389 C — signal, 1 seul bouton fluo / écran. Ne porte JAMAIS de texte. */
+  --color-magenta: #cc0072;   /* Magenta bus — Pantone 226 C — RÉSERVÉ aux perturbations/alertes */
+  --color-magenta-700: #a3005c;
+  --color-cyan: #00c2d6;      /* Cyan info — Pantone 3115 C — informationnel, jamais texte sur blanc */
+
+  /* Neutres (échelle officielle) */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f4f5f0;
+  --color-border: #c9ccc0;
+  --color-ink-soft: #3a3a52;
+  --color-ink: #101024;
+  --color-muted: #5c5c74;
+  --color-bg: #fbfbf8;
+
+  /* États (dérivés de la palette officielle, jamais de couleur hors charte) */
+  --color-success: var(--color-fluo);
+  --color-success-ink: #3d5200; /* texte foncé utilisable SUR un fond fluo, jamais fluo-sur-blanc */
+  --color-warning: #8a5a00;
+  --color-danger: var(--color-magenta);
+  --color-info: var(--color-cyan);
+  --color-info-ink: #004a52;   /* texte foncé utilisable sur un fond cyan */
+
+  /* Typographie (charte : Bricolage Grotesque = titrage, Archivo = texte/interface, JetBrains Mono = horaires) */
+  --font-heading: 'Bricolage Grotesque', 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-body: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* Échelle web / mobile (desktop / mobile) */
+  --fs-h1: 2.75rem;   /* 44px desktop */
+  --fs-h1-mobile: 2rem;      /* 32px mobile */
+  --fs-h2: 2rem;      /* 32px */
+  --fs-h2-mobile: 1.5rem;    /* 24px */
+  --fs-h3: 1.375rem;  /* 22px */
+  --fs-h3-mobile: 1.25rem;   /* 20px */
+  --fs-base: 1.0625rem;      /* 17px desktop */
+  --fs-base-mobile: 1rem;    /* 16px mobile — minimum charte */
+  --fs-label: 0.875rem;      /* 14px libellé/légende — minimum charte */
+  --fs-eyebrow: 0.75rem;     /* 12px surtitre, +10% tracking */
+
+  /* Espacement — grille de 8px, marges mobiles 16px */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4rem;
+  --mobile-margin: 1rem; /* 16px */
+
+  /* Rayons — 8px cartes/champs, plein arrondi boutons/pastilles (charte : PAS d'ombres) */
+  --radius-card: 8px;
+  --radius-pill: 999px;
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-blue);
+
+  /* Trame de points (motif signature du logo) */
+  --dot-pitch-mobile: 16px;
+  --dot-pitch-desktop: 28px;
+  --dot-diameter-ratio: 0.34; /* 34% du pas */
+
+  /* Structure */
+  --header-h: 64px;
+  --bottomnav-h: 64px;
+  --container-max: 1180px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}

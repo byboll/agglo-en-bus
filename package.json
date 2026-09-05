@@ -1,0 +1,20 @@
+{
+  "name": "agglo-en-bus",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Site web démonstrateur (non-officiel) du réseau de transport L'Agglo en bus - Gap-Tallard-Durance",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "leaflet": "^1.9.4",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

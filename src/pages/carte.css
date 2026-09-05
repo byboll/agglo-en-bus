@@ -1,0 +1,59 @@
+/* Carte du réseau — mise en page pleine hauteur mobile + barre latérale desktop.
+   Charte : pas d'ombres, rayons 8px/pleins, cibles tactiles 44px mini. */
+
+.carte-page-content { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.carte-header { padding: var(--sp-3) 0 0; }
+.carte-header h1 { margin-bottom: var(--sp-1); }
+
+.carte-layout { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.carte-filter-panel {
+  margin: 0 var(--mobile-margin);
+}
+.carte-filter-panel summary {
+  cursor: pointer; font-weight: 700; font-family: var(--font-heading);
+  min-height: 44px; display: flex; align-items: center;
+}
+.carte-filter-panel summary::marker { color: var(--color-blue); }
+.carte-filter-count { font-weight: 500; color: var(--color-muted); margin-left: var(--sp-2); font-size: var(--fs-label); }
+
+.carte-filter-actions { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0; }
+
+.carte-filter-list {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: var(--sp-2); max-height: 42vh; overflow-y: auto;
+}
+.carte-filter-row {
+  display: flex; align-items: center; gap: var(--sp-3); min-height: 44px; cursor: pointer;
+  padding: var(--sp-1) var(--sp-2); border-radius: var(--radius-card);
+}
+.carte-filter-row:hover { background: var(--color-surface-alt); }
+.carte-filter-row input[type='checkbox'] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--color-blue); }
+.carte-filter-name {
+  font-size: var(--fs-label); color: var(--color-ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+
+.carte-map-wrap { width: 100%; }
+.carte-map {
+  width: 100%;
+  height: calc(100dvh - var(--header-h) - var(--bottomnav-h) - var(--safe-top) - var(--safe-bottom) - 3.25rem);
+  min-height: 300px;
+  background: var(--color-surface-alt);
+}
+.carte-map .leaflet-popup-content-wrapper { border-radius: var(--radius-card); box-shadow: none; border: 1px solid var(--color-border); }
+.carte-map .leaflet-popup-tip { box-shadow: none; border: 1px solid var(--color-border); }
+
+.carte-popup { font-family: var(--font-body); min-width: 170px; }
+.carte-popup strong { display: block; margin-bottom: var(--sp-2); font-family: var(--font-heading); }
+.carte-popup-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: var(--sp-2); }
+
+@media (min-width: 900px) {
+  .carte-layout { display: grid; grid-template-columns: 280px 1fr; align-items: start; gap: var(--sp-5); }
+  .carte-filter-panel {
+    margin: 0; position: sticky; top: calc(var(--topbar-h, calc(var(--header-h) + var(--safe-top))) + var(--sp-4));
+  }
+  .carte-filter-list { max-height: 62vh; }
+  .carte-map { height: 70vh; border-radius: var(--radius-card); }
+}
