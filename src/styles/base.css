@@ -87,9 +87,10 @@ ul, ol { margin: 0 0 var(--sp-4); padding-left: 1.25em; }
 }
 main {
   flex: 1;
-  /* --topbar-h est fixée en JS (mountLayoutBehavior) à la hauteur réelle du bandeau + header,
-     qui varie selon que le bandeau disclaimer passe sur une ou plusieurs lignes. */
-  padding-top: var(--topbar-h, calc(var(--header-h) + var(--safe-top)));
+  /* Pas de padding-top : le header est seul fixe désormais, et le bandeau disclaimer (qui le
+     suit dans le flux normal, avec sa propre marge — voir .disclaimer-banner) pousse déjà
+     #outlet en dessous. Un padding ici recréerait un vide sous le bandeau. */
+  padding-top: 0px;
   padding-bottom: calc(var(--bottomnav-h) + var(--safe-bottom) + var(--sp-4));
 }
 @media (min-width: 900px) {

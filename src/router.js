@@ -76,6 +76,11 @@ export async function renderCurrent() {
   document.dispatchEvent(new CustomEvent('route:willchange', { detail: { pathname } }));
   outlet.innerHTML = html;
   outlet.removeAttribute('aria-busy');
+  // `html, body { height: 100% }` (base.css) fait de <body> — et non de la fenêtre — l'élément
+  // qui défile réellement ici : window.scrollTo() seul n'a donc aucun effet visible. On réinitialise
+  // les deux pour rester correct si ce comportement de scroll change un jour.
+  document.body.scrollTop = 0;
+  document.documentElement.scrollTop = 0;
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   try {
     if (mountFn) mountFn(outlet);

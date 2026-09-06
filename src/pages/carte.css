@@ -3,7 +3,7 @@
 
 .carte-page-content { display: flex; flex-direction: column; gap: var(--sp-3); }
 
-.carte-header { padding: var(--sp-3) 0 0; }
+.carte-header { padding-top: var(--sp-6); }
 .carte-header h1 { margin-bottom: var(--sp-1); }
 
 .carte-layout { display: flex; flex-direction: column; gap: var(--sp-3); }
