@@ -2,10 +2,12 @@ import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/
 import {
   routeColors, nextDeparturesForStopMultiDay, nowSecsLocal, secsToTime,
   shapesForRoute, allDeparturesForStopOnDate, headsignForStopOnRoute,
+  applyRealtime, realtimeBadgeHtml, vehiclesForRoute,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 import { createRouteMap } from '../components/routeMap.js';
 import { openTripModal } from '../components/tripModal.js';
+import { subscribeRt } from '../gtfs/realtime.js';
 
 const REFRESH_MS = 30000;
 
@@ -25,7 +27,8 @@ function dayLabel(dayOffset, date) {
 }
 
 function buildDeparturesHtml(data, indices, stopId) {
-  const results = nextDeparturesForStopMultiDay(data, indices, stopId, new Date(), nowSecsLocal(), 6);
+  const results = nextDeparturesForStopMultiDay(data, indices, stopId, new Date(), nowSecsLocal(), 6)
+    .map((r) => applyRealtime(r));
   if (!results.length) {
     return `<p class="text-muted">Aucun autre passage prévu prochainement à cet arrêt.</p>`;
   }
@@ -40,7 +43,7 @@ function buildDeparturesHtml(data, indices, stopId) {
             <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(r.route?.route_short_name || '?')}</span>
             <span class="arret-dep-headsign">${r.trip.trip_headsign ? `→ ${escapeHtml(r.trip.trip_headsign)}` : ''}</span>
             <span class="arret-dep-time-col">
-              ${label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : ''}
+              ${r.isRealtime ? realtimeBadgeHtml() : (label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : '')}
               <span class="mono arret-dep-time">${secsToTime(r.depSecs)}</span>
             </span>
           </button>`;
@@ -49,7 +52,7 @@ function buildDeparturesHtml(data, indices, stopId) {
 }
 
 function buildFullScheduleHtml(data, indices, stopId, date) {
-  const results = allDeparturesForStopOnDate(data, indices, stopId, date);
+  const results = allDeparturesForStopOnDate(data, indices, stopId, date).map((r) => applyRealtime(r, date));
   if (!results.length) {
     return `<p class="text-muted">Aucun passage prévu à cet arrêt à cette date.</p>`;
   }
@@ -72,7 +75,7 @@ function buildFullScheduleHtml(data, indices, stopId, date) {
           </div>
           <div class="arret-schedule-times">
             ${items.map((r) => `
-              <button type="button" class="arret-schedule-chip mono" data-trip-id="${escapeHtml(r.trip.trip_id)}" title="${escapeHtml(r.trip.trip_headsign || '')}">
+              <button type="button" class="arret-schedule-chip mono${r.isRealtime ? ' is-realtime' : ''}" data-trip-id="${escapeHtml(r.trip.trip_id)}" title="${escapeHtml(r.trip.trip_headsign || '')}${r.isRealtime ? ' — horaire temps réel' : ''}">
                 ${secsToTime(r.depSecs)}
               </button>`).join('')}
           </div>
@@ -110,6 +113,11 @@ export async function render({ params }) {
         padding: 0.4em 0.9em; font-size: var(--fs-label); cursor: pointer;
       }
       .arret-schedule-chip:hover { background: var(--color-surface-alt); }
+      .arret-schedule-chip.is-realtime { border-color: var(--color-fluo); }
+      .arret-schedule-chip.is-realtime::before {
+        content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+        background: var(--color-fluo); margin-right: 5px; vertical-align: middle;
+      }
       .arret-schedule-row { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
     </style>
     <div class="container section">
@@ -124,10 +132,12 @@ export async function render({ params }) {
       mountRetryButtons(container);
       let intervalId = null;
       let mapApi = null;
+      let unsubscribeRt = null;
       const destroyMap = () => { if (mapApi) { mapApi.destroy(); mapApi = null; } };
 
       withGtfsReady(container, (state) => {
         if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        if (unsubscribeRt) { unsubscribeRt(); unsubscribeRt = null; }
         destroyMap();
 
         const contentEl = container.querySelector('[data-role="page-content"]');
@@ -164,7 +174,7 @@ export async function render({ params }) {
           <div id="arret-map" class="arret-map"></div>
           <div class="card" style="margin-top:var(--sp-5);">
             <h2 class="mt-0" style="font-size:var(--fs-h3);">Prochains passages</h2>
-            <p class="sr-note" style="margin-top:calc(var(--sp-2) * -1);">Horaires théoriques, issus de la fiche horaire — pas de suivi en temps réel. Cliquez sur un passage pour voir le détail de la course.</p>
+            <p class="sr-note" style="margin-top:calc(var(--sp-2) * -1);">Horaires théoriques, actualisés en temps réel quand l'information est disponible (repérée par le picto <span class="rt-badge" style="vertical-align:middle;">Direct</span>). Cliquez sur un passage pour voir le détail de la course.</p>
             <div id="arret-deps"></div>
           </div>
           <div class="card" style="margin-top:var(--sp-5);">
@@ -196,11 +206,27 @@ export async function render({ params }) {
           mapEl.outerHTML = `<div class="alert alert-info">Emplacement de cet arrêt non disponible.</div>`;
         }
 
+        // Véhicules en circulation sur les lignes qui desservent cet arrêt.
+        const updateVehicles = () => {
+          if (!mapApi) return;
+          const vehicles = lines.flatMap((route) => {
+            const type = routeType(route.route_type);
+            const { bg } = routeColors(route, type);
+            return vehiclesForRoute(route.route_id).map((v) => ({
+              lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
+              tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+            }));
+          });
+          mapApi.updateVehicles(vehicles);
+        };
+        updateVehicles();
+
         const depsEl = contentEl.querySelector('#arret-deps');
         const refresh = () => {
           depsEl.innerHTML = buildDeparturesHtml(data, indices, stop.stop_id);
         };
         refresh();
+        unsubscribeRt = subscribeRt(() => { refresh(); updateVehicles(); });
 
         const openTripFromRow = (btn) => {
           const tripId = btn?.dataset.tripId;
@@ -232,7 +258,10 @@ export async function render({ params }) {
         scheduleEl.addEventListener('click', (e) => openTripFromRow(e.target.closest('[data-trip-id]')));
       }, { loadingSelector: '[data-role="gtfs-loading"]', errorSelector: '[data-role="gtfs-error"]' });
 
-      document.addEventListener('route:willchange', destroyMap, { once: true });
+      document.addEventListener('route:willchange', () => {
+        destroyMap();
+        if (unsubscribeRt) { unsubscribeRt(); unsubscribeRt = null; }
+      }, { once: true });
     },
   };
 }

@@ -3,11 +3,14 @@ import L from 'leaflet';
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
 import {
   activeServiceIdsForDate, timeToSecs, secsToTime, secsToDur, searchStops, routeColors,
-  intermediateStopsForLeg,
+  intermediateStopsForLeg, realtimeStopTime, realtimeBadgeHtml, vehicleForTrip,
+  alertsForRoute, alertEffectLabel, translatedText,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 import { computeItineraryOptions } from '../gtfs/raptor.js';
 import { openTripModal } from '../components/tripModal.js';
+import { createVehicleLayer } from '../components/vehicleMarkers.js';
+import { subscribeRt } from '../gtfs/realtime.js';
 
 // Valeurs par défaut — doivent rester alignées avec CFG dans gtfs/raptor.js.
 const DEFAULT_OPTIONS = { walkSpeedKmh: 4, maxTransfers: 3, minTransferMin: 2, maxTransferDistM: 900 };
@@ -111,10 +114,15 @@ function transitStepHtml(leg, data, indices) {
         </ul>
       </details>`
     : '';
+  const depRt = realtimeStopTime(leg.trip_id, leg.from_stop);
+  const arrRt = realtimeStopTime(leg.trip_id, leg.to_stop);
+  const depSecs = depRt?.depSecs ?? leg.dep_time;
+  const arrSecs = arrRt?.arrSecs ?? leg.arr_time;
   return `
     <div class="itin-step itin-step-transit">
       <div class="itin-step-row">
-        <span class="mono">${secsToTime(leg.dep_time)}</span>
+        <span class="mono">${secsToTime(depSecs)}</span>
+        ${depRt ? realtimeBadgeHtml() : ''}
         <span>${escapeHtml(fromStop?.stop_name || leg.from_stop)}</span>
       </div>
       <button type="button" class="itin-step-line" data-trip-id="${escapeHtml(leg.trip_id)}" data-board="${escapeHtml(leg.from_stop)}" data-alight="${escapeHtml(leg.to_stop)}">
@@ -124,9 +132,41 @@ function transitStepHtml(leg, data, indices) {
       </button>
       ${interHtml}
       <div class="itin-step-row">
-        <span class="mono">${secsToTime(leg.arr_time)}</span>
+        <span class="mono">${secsToTime(arrSecs)}</span>
+        ${arrRt ? realtimeBadgeHtml() : ''}
         <span>${escapeHtml(toStop?.stop_name || leg.to_stop)}</span>
       </div>
+    </div>`;
+}
+
+function journeyAlertsHtml(journey) {
+  const routeIds = [...new Set(journey.legs.filter((l) => l.type === 'transit').map((l) => l.route_id))];
+  const seen = new Set();
+  const alerts = [];
+  for (const rid of routeIds) {
+    for (const a of alertsForRoute(rid)) {
+      if (seen.has(a)) continue;
+      seen.add(a);
+      alerts.push(a);
+    }
+  }
+  if (!alerts.length) return '';
+  return `
+    <div class="itin-journey-alerts">
+      ${alerts.map((a) => {
+        const effect = alertEffectLabel(a.effect);
+        const header = translatedText(a.headerText);
+        const desc = translatedText(a.descriptionText);
+        return `
+          <div class="alert alert-danger" style="margin-bottom:var(--sp-3);">
+            <span aria-hidden="true">⚠️</span>
+            <div>
+              <span class="status-pill status-alert">Perturbation${effect ? ` · ${escapeHtml(effect)}` : ''}</span>
+              ${header ? `<p style="margin:var(--sp-2) 0 0;font-weight:600;">${escapeHtml(header)}</p>` : ''}
+              ${desc ? `<p style="margin:var(--sp-1) 0 0;">${escapeHtml(desc)}</p>` : ''}
+            </div>
+          </div>`;
+      }).join('')}
     </div>`;
 }
 
@@ -160,8 +200,9 @@ function journeyCardHtml(journey, idx, data, indices) {
         <div class="itin-journey-legs">${legPillsHtml(journey, indices)}</div>
       </button>
       <div class="itin-journey-detail" id="itin-journey-detail-${idx}" hidden>
+        <div id="itin-journey-alerts-${idx}">${journeyAlertsHtml(journey)}</div>
         ${stepsHtml}
-        <p class="sr-note" style="margin:0;">Horaires théoriques d'après la fiche horaire — sans suivi en temps réel des véhicules.</p>
+        <p class="sr-note" style="margin:0;">Horaires théoriques, actualisés en temps réel quand l'information est disponible (picto <span class="rt-badge" style="vertical-align:middle;">Direct</span>).</p>
       </div>
     </div>`;
 }
@@ -264,7 +305,28 @@ function initItineraire(root, data, indices) {
   let map = null;
   let constraint = 'depart';
   const currentLayerRef = { layer: null };
+  const vehicleLayerRef = { layer: null };
+  let currentJourneys = null;
+  let currentIdx = 0;
   let cleaned = false;
+
+  function journeyVehicles(journey) {
+    if (!journey) return [];
+    return journey.legs
+      .filter((l) => l.type === 'transit')
+      .map((leg) => {
+        const v = vehicleForTrip(leg.trip_id);
+        if (!v) return null;
+        const route = indices.routesById[leg.route_id];
+        const type = routeType(route?.route_type);
+        const { bg } = routeColors(route, type);
+        return {
+          lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
+          tripId: leg.trip_id, label: v.vehicle?.label, color: bg, icon: type.icon,
+        };
+      })
+      .filter(Boolean);
+  }
 
   constraintBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -319,6 +381,7 @@ function initItineraire(root, data, indices) {
     if (map) return map;
     map = L.map(mapEl, { attributionControl: true });
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
+    vehicleLayerRef.layer = createVehicleLayer(map);
     return map;
   }
 
@@ -329,9 +392,12 @@ function initItineraire(root, data, indices) {
     panels.forEach((p, i) => { p.hidden = i !== idx; });
     mapPlaceholder.hidden = true;
     mapEl.hidden = false;
+    currentJourneys = journeys;
+    currentIdx = idx;
     const m = ensureMap();
     setTimeout(() => { if (!cleaned) m.invalidateSize(); }, 0);
     drawJourneyOnMap(m, journeys[idx], data, indices, currentLayerRef);
+    vehicleLayerRef.layer.update(journeyVehicles(journeys[idx]));
   }
 
   function renderResults(journeys) {
@@ -345,7 +411,9 @@ function initItineraire(root, data, indices) {
         </div>`;
       mapPlaceholder.hidden = false;
       mapEl.hidden = true;
+      currentJourneys = null;
       if (currentLayerRef.layer && map) { map.removeLayer(currentLayerRef.layer); currentLayerRef.layer = null; }
+      vehicleLayerRef.layer?.update([]);
       return;
     }
     listEl.innerHTML = journeys.map((j, idx) => journeyCardHtml(j, idx, data, indices)).join('');
@@ -392,9 +460,20 @@ function initItineraire(root, data, indices) {
     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
+  // Rafraîchit en place, sur le tick temps réel, le trajet actuellement sélectionné : position des
+  // véhicules sur la mini-carte + perturbations (sans reconstruire les étapes/relancer fitBounds).
+  const unsubscribeRt = subscribeRt(() => {
+    if (!currentJourneys) return;
+    const journey = currentJourneys[currentIdx];
+    vehicleLayerRef.layer?.update(journeyVehicles(journey));
+    const alertsEl = document.getElementById(`itin-journey-alerts-${currentIdx}`);
+    if (alertsEl) alertsEl.innerHTML = journeyAlertsHtml(journey);
+  });
+
   const cleanup = () => {
     if (cleaned) return;
     cleaned = true;
+    unsubscribeRt();
     if (map) { map.remove(); map = null; }
   };
   // Nettoyage AVANT que le routeur ne remplace le HTML de cette page (le conteneur #itin-map
@@ -490,7 +569,7 @@ export async function render() {
 
         <div class="itin-results-section" id="itin-results-section" hidden>
           <h2>Trajets proposés</h2>
-          <p class="sr-note" style="margin-top:calc(var(--sp-2) * -1);">Horaires théoriques — pas de suivi en temps réel des véhicules.</p>
+          <p class="sr-note" style="margin-top:calc(var(--sp-2) * -1);">Horaires théoriques, actualisés en temps réel quand disponible.</p>
           <div class="itin-results-layout">
             <div class="itin-results-list" id="itin-results-list"></div>
             <div class="itin-map-col">

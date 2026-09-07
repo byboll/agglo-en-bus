@@ -2,7 +2,7 @@
 // et la page Itinéraire (clic sur un trajet en transport en commun proposé). Montée UNE SEULE
 // FOIS dans la coquille de l'app (voir mountTripModal(), appelée depuis main.js) ; les pages
 // l'ouvrent simplement via openTripModal(...).
-import { routeColors, secsToTime } from '../gtfs/helpers.js';
+import { routeColors, secsToTime, timeToSecs, realtimeStopTime, realtimeBadgeHtml } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 
 let rootEl = null;
@@ -73,7 +73,7 @@ export function openTripModal(data, indices, { tripId, boardStopId, alightStopId
     <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(route?.route_short_name || '?')}</span>
     <span>${escapeHtml(title)}</span>`;
   document.getElementById('trip-modal-sub').textContent =
-    `${sts.length} arrêt${sts.length > 1 ? 's' : ''} — horaires théoriques, sans suivi en temps réel`;
+    `${sts.length} arrêt${sts.length > 1 ? 's' : ''} — horaires théoriques, actualisés en temps réel quand disponible`;
 
   const hasRange = !!(boardStopId || alightStopId);
   let inRange = !hasRange;
@@ -84,14 +84,17 @@ export function openTripModal(data, indices, { tripId, boardStopId, alightStopId
     if (isBoard) inRange = true;
     const active = !hasRange || inRange;
     if (isAlight) inRange = false;
-    const time = st.dep || st.arr || '';
+    const staticSecs = timeToSecs(st.dep || st.arr || '');
+    const rt = realtimeStopTime(tripId, st.stop_id);
+    const secs = rt ? (rt.depSecs ?? rt.arrSecs) : staticSecs;
     return `
       <li class="trip-modal-row${active ? ' is-active' : ''}${isBoard ? ' is-board' : ''}${isAlight ? ' is-alight' : ''}">
         <span class="trip-modal-dot" aria-hidden="true"></span>
         <span class="trip-modal-stop">${escapeHtml(stop?.stop_name || st.stop_id)}</span>
         ${isBoard ? '<span class="status-pill status-ok">Montée</span>' : ''}
         ${isAlight ? '<span class="status-pill status-info">Descente</span>' : ''}
-        <span class="mono trip-modal-time">${time.slice(0, 5)}</span>
+        ${rt ? realtimeBadgeHtml() : ''}
+        <span class="mono trip-modal-time">${secsToTime(secs)}</span>
       </li>`;
   }).join('');
 

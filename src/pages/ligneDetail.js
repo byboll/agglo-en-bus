@@ -1,10 +1,12 @@
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
 import {
   routeColors, tripsForRoute, canonicalStopOrder, shapesForTrips,
+  alertsForRoute, alertEffectLabel, translatedText, vehiclesForRoute,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 import { createRouteMap } from '../components/routeMap.js';
 import { navigate } from '../router.js';
+import { subscribeRt } from '../gtfs/realtime.js';
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
@@ -25,6 +27,24 @@ function mostCommonHeadsign(trips) {
     if (c > bestCount) { best = hs; bestCount = c; }
   }
   return best;
+}
+
+function alertsBlockHtml(alerts) {
+  if (!alerts.length) return '';
+  return alerts.map((a) => {
+    const effect = alertEffectLabel(a.effect);
+    const header = translatedText(a.headerText);
+    const desc = translatedText(a.descriptionText);
+    return `
+      <div class="alert alert-danger" style="margin-bottom:var(--sp-3);">
+        <span aria-hidden="true">⚠️</span>
+        <div>
+          <span class="status-pill status-alert">Perturbation${effect ? ` · ${escapeHtml(effect)}` : ''}</span>
+          ${header ? `<p style="margin:var(--sp-2) 0 0;font-weight:600;">${escapeHtml(header)}</p>` : ''}
+          ${desc ? `<p style="margin:var(--sp-1) 0 0;">${escapeHtml(desc)}</p>` : ''}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function buildDirectionHtml(data, indices, allTripsForDir, bg) {
@@ -171,13 +191,24 @@ export async function render({ params }) {
 
         contentEl.innerHTML = `
           ${headerHtml}
+          <div id="ligne-alerts">${alertsBlockHtml(alertsForRoute(route.route_id))}</div>
           ${toggleHtml}
           <div id="${bodyContainerId}"></div>
         `;
 
         const bodyEl = contentEl.querySelector(`#${bodyContainerId}`);
+        const alertsEl = contentEl.querySelector('#ligne-alerts');
         let mapApi = null;
+        let currentDirIdx = 0;
         const destroyMap = () => { if (mapApi) { mapApi.destroy(); mapApi = null; } };
+        const updateVehicles = () => {
+          if (!mapApi) return;
+          const vehicles = vehiclesForRoute(route.route_id, currentDirIdx).map((v) => ({
+            lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
+            tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+          }));
+          mapApi.updateVehicles(vehicles);
+        };
 
         const applyStopFilter = (query) => {
           const q = query.trim().toLowerCase();
@@ -195,6 +226,7 @@ export async function render({ params }) {
         const renderDir = (dirIdx) => {
           // Conserve la recherche en cours d'un sens à l'autre (bodyEl est entièrement remplacé).
           const prevQuery = bodyEl.querySelector('#ligne-stop-search')?.value || '';
+          currentDirIdx = dirIdx;
           destroyMap();
           const allTripsForDir = dirIdx === 1 ? allDir1 : allDir0;
           bodyEl.innerHTML = buildDirectionHtml(data, indices, allTripsForDir, bg);
@@ -225,6 +257,7 @@ export async function render({ params }) {
             highlightColor: bg,
             onStopClick: (stopId) => navigate(`/arrets/${stopId}`),
           });
+          updateVehicles();
 
           // Survol d'un arrêt dans la liste -> mise en avant du marqueur correspondant sur la carte.
           bodyEl.querySelectorAll('.ligne-stops-list li[data-stop-id]').forEach((li) => {
@@ -246,7 +279,14 @@ export async function render({ params }) {
           });
         }
 
-        document.addEventListener('route:willchange', destroyMap, { once: true });
+        // Un seul abonnement, indépendant de renderDir : lit mapApi/currentDirIdx au moment du
+        // tick, donc survit à la bascule Aller/Retour (qui détruit/recrée la carte).
+        const unsubscribeRt = subscribeRt(() => {
+          alertsEl.innerHTML = alertsBlockHtml(alertsForRoute(route.route_id));
+          updateVehicles();
+        });
+
+        document.addEventListener('route:willchange', () => { destroyMap(); unsubscribeRt(); }, { once: true });
       }, { loadingSelector: '[data-role="gtfs-loading"]', errorSelector: '[data-role="gtfs-error"]' });
     },
   };

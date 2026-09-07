@@ -187,6 +187,22 @@ main {
 .status-info { background: var(--color-cyan); color: var(--color-info-ink); }
 .status-off { background: var(--color-surface-alt); color: var(--color-muted); border: 1px solid var(--color-border); }
 
+/* Picto "temps réel" — accolé à un horaire mis à jour via GTFS-RT (voir gtfs/realtime.js). */
+.rt-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-eyebrow); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--color-success-ink); background: var(--color-fluo);
+  border-radius: var(--radius-pill); padding: 2px 7px 2px 6px; white-space: nowrap;
+}
+.rt-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* Marqueur véhicule sur les cartes Leaflet (voir components/vehicleMarkers.js). */
+.veh-marker-inner {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--color-surface);
+  border: 2.5px solid var(--color-ink); display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1; box-sizing: border-box;
+}
+
 /* Bandeaux d'alerte (contenu, jamais juste décoratif) */
 .alert { display: flex; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-4); border-radius: var(--radius-card); margin-bottom: var(--sp-4); border: 1px solid transparent; }
 .alert-info { background: #e6fafc; border-color: var(--color-cyan); color: var(--color-info-ink); }

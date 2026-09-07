@@ -1,8 +1,10 @@
 import './carte.css';
 import L from 'leaflet';
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
-import { routeColors, shapesForRoute } from '../gtfs/helpers.js';
+import { routeColors, shapesForRoute, vehiclesForRoute } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
+import { createVehicleLayer } from '../components/vehicleMarkers.js';
+import { subscribeRt } from '../gtfs/realtime.js';
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
@@ -103,6 +105,23 @@ function initCarte(root, data, indices) {
   const bounds = L.latLngBounds(stopsWithCoords.map((s) => [+s.stop_lat, +s.stop_lon]));
   map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
 
+  // Véhicules en circulation — uniquement sur les lignes actuellement cochées dans le filtre.
+  const vehicleLayer = createVehicleLayer(map);
+  const updateVehicles = () => {
+    const visibleRouteIds = [...filterListEl.querySelectorAll('input[type="checkbox"]:checked')]
+      .map((cb) => cb.dataset.routeId);
+    const vehicles = visibleRouteIds.flatMap((rid) => {
+      const route = indices.routesById[rid];
+      const type = routeType(route?.route_type);
+      const { bg } = routeColors(route, type);
+      return vehiclesForRoute(rid).map((v) => ({
+        lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
+        tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+      }));
+    });
+    vehicleLayer.update(vehicles);
+  };
+
   // Panneau de filtrage des lignes ------------------------------------------
   const filterableRoutes = sortedRoutes.filter((r) => routeLayers[r.route_id]);
   const countEl = root.querySelector('#carte-filter-count');
@@ -128,6 +147,7 @@ function initCarte(root, data, indices) {
       if (!layer) return;
       if (cb.checked) layer.addTo(map);
       else map.removeLayer(layer);
+      updateVehicles();
     });
   });
 
@@ -136,6 +156,7 @@ function initCarte(root, data, indices) {
       cb.checked = true;
       routeLayers[cb.dataset.routeId]?.addTo(map);
     });
+    updateVehicles();
   });
   root.querySelector('#carte-filter-none')?.addEventListener('click', () => {
     filterListEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
@@ -143,7 +164,11 @@ function initCarte(root, data, indices) {
       const layer = routeLayers[cb.dataset.routeId];
       if (layer) map.removeLayer(layer);
     });
+    updateVehicles();
   });
+
+  updateVehicles();
+  const unsubscribeRt = subscribeRt(updateVehicles);
 
   // Ouvre le panneau par défaut sur grand écran (barre latérale toujours visible).
   if (window.matchMedia('(min-width: 900px)').matches) filterPanelEl.open = true;
@@ -166,6 +191,8 @@ function initCarte(root, data, indices) {
     if (cleaned) return;
     cleaned = true;
     clearTimeout(sizeTimer);
+    unsubscribeRt();
+    vehicleLayer.destroy();
     map.remove();
   };
   document.addEventListener('route:willchange', cleanup, { once: true });
@@ -177,7 +204,7 @@ export async function render() {
       <div class="carte-header container">
         <span class="eyebrow">Réseau</span>
         <h1 class="mt-0">Carte du réseau</h1>
-        <p class="sr-note" style="margin:0;">Tracés et arrêts issus des horaires théoriques publiés — pas de suivi en temps réel des véhicules.</p>
+        <p class="sr-note" style="margin:0;">Tracés et arrêts issus des horaires théoriques publiés — véhicules en circulation affichés en temps réel quand disponible.</p>
       </div>
       <div class="container">
         ${gtfsStatusBlockHtml()}

@@ -4,6 +4,7 @@
 // chaque page appelante n'ait qu'à fournir des données et appeler destroy() au bon moment
 // (sur l'évènement 'route:willchange', AVANT que le routeur ne remplace le HTML de la page).
 import L from 'leaflet';
+import { createVehicleLayer } from './vehicleMarkers.js';
 
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -56,6 +57,8 @@ export function createRouteMap(mapEl, { routeLines = [], stops = [], onStopClick
     }
   }
 
+  const vehicleLayer = createVehicleLayer(map);
+
   let destroyed = false;
   const fixSize = () => { if (!destroyed) map.invalidateSize(); };
   requestAnimationFrame(fixSize);
@@ -65,8 +68,9 @@ export function createRouteMap(mapEl, { routeLines = [], stops = [], onStopClick
     if (destroyed) return;
     destroyed = true;
     clearTimeout(sizeTimer);
+    vehicleLayer.destroy();
     map.remove();
   }
 
-  return { map, highlightStop, destroy };
+  return { map, highlightStop, updateVehicles: vehicleLayer.update, destroy };
 }

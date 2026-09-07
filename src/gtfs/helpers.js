@@ -1,3 +1,5 @@
+import { getRtState, isRtFresh } from './realtime.js';
+
 const DOW = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 export function buildIndices(data) {
@@ -287,4 +289,113 @@ export function searchRoutes(data, query, limit = 10) {
           (r.route_id || '').toLowerCase().includes(q)
       );
   return list.slice(0, limit);
+}
+
+/* ------------------------------------------------------------------------ */
+/* GTFS-Realtime — fusion avec les données statiques ci-dessus               */
+/* ------------------------------------------------------------------------ */
+
+/** Convertit un timestamp epoch (secondes) en "secondes depuis minuit local", même convention que
+ *  timeToSecs/secsToTime. `referenceDate` permet de rester aligné sur la même journée de service
+ *  que l'horaire théorique quand un trajet continue après minuit (convention GTFS des heures > 24:00,
+ *  auquel cas l'epoch réel tombe sur le jour civil suivant). */
+export function epochToLocalSecs(epochSeconds, referenceDate) {
+  const d = new Date(epochSeconds * 1000);
+  let secs = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+  if (referenceDate) {
+    const refYmd = ymdFromDate(referenceDate);
+    const epochYmd = ymdFromDate(d);
+    if (epochYmd > refYmd) secs += 86400;
+  }
+  return secs;
+}
+
+function isNetworkWideAlertEntity(ie) {
+  return !ie.routeId && !ie.stopId && !ie.trip;
+}
+
+/** Horaire temps réel d'un trip à un arrêt donné, ou null si indisponible/périmé/arrêt supprimé. */
+export function realtimeStopTime(tripId, stopId, referenceDate) {
+  if (!isRtFresh()) return null;
+  const tu = getRtState().tripUpdatesByTripId[tripId];
+  const stu = tu?.byStop?.[stopId];
+  if (!stu || stu.scheduleRelationship === 1 /* SKIPPED */) return null;
+  const depTime = stu.departure?.time;
+  const arrTime = stu.arrival?.time;
+  if (depTime == null && arrTime == null) return null;
+  const depSecs = depTime != null ? epochToLocalSecs(depTime, referenceDate) : undefined;
+  const arrSecs = arrTime != null ? epochToLocalSecs(arrTime, referenceDate) : undefined;
+  return { depSecs: depSecs ?? arrSecs, arrSecs: arrSecs ?? depSecs };
+}
+
+/** Ré-écrit `depSecs` avec l'horaire temps réel s'il est disponible pour ce trip/arrêt, et ajoute
+ *  `isRealtime` (à utiliser pour afficher le picto "Direct") — sinon renvoie `r` avec
+ *  `isRealtime:false`, sans toucher à `depSecs` (repli sur l'horaire théorique déjà présent). */
+export function applyRealtime(r, referenceDate) {
+  const rt = realtimeStopTime(r.trip.trip_id, r.stopTime.stop_id, referenceDate || r.date);
+  if (!rt) return { ...r, isRealtime: false };
+  return { ...r, depSecs: rt.depSecs, isRealtime: true };
+}
+
+/** Véhicules actuellement en circulation sur une ligne (et un sens, si précisé). */
+export function vehiclesForRoute(routeId, directionId = null) {
+  if (!isRtFresh()) return [];
+  return Object.values(getRtState().vehiclesByTripId).filter((v) => {
+    if (v.trip?.routeId !== routeId) return false;
+    if (directionId != null && v.trip?.directionId !== directionId) return false;
+    return v.position?.latitude != null && v.position?.longitude != null;
+  });
+}
+
+/** Position véhicule d'un trip précis, ou null si pas de véhicule actif dessus actuellement. */
+export function vehicleForTrip(tripId) {
+  if (!isRtFresh()) return null;
+  const v = getRtState().vehiclesByTripId[tripId];
+  return v?.position?.latitude != null ? v : null;
+}
+
+/** Alertes actives concernant une ligne (inclut les alertes réseau-large non ciblées). */
+export function alertsForRoute(routeId) {
+  return getRtState().alerts.filter((a) =>
+    (a.informedEntity || []).some((ie) => ie.routeId === routeId || isNetworkWideAlertEntity(ie))
+  );
+}
+
+/** Alertes actives concernant un trip précis (par trip_id, ou par sa ligne). */
+export function alertsForTrip(tripId, routeId) {
+  return getRtState().alerts.filter((a) =>
+    (a.informedEntity || []).some(
+      (ie) => ie.trip?.tripId === tripId || (routeId && ie.routeId === routeId) || isNetworkWideAlertEntity(ie)
+    )
+  );
+}
+
+const ALERT_CAUSE_LABELS = {
+  2: 'Autre cause', 3: 'Problème technique', 4: 'Grève', 5: 'Manifestation', 6: 'Accident',
+  7: 'Jour férié', 8: 'Météo', 9: 'Maintenance', 10: 'Travaux', 11: 'Intervention police',
+  12: 'Urgence médicale',
+};
+export function alertCauseLabel(cause) {
+  return ALERT_CAUSE_LABELS[cause] || null;
+}
+
+const ALERT_EFFECT_LABELS = {
+  1: 'Service interrompu', 2: 'Service réduit', 3: 'Retards importants', 4: 'Déviation',
+  5: 'Service supplémentaire', 6: 'Service modifié', 7: 'Autre effet', 9: 'Arrêt déplacé',
+  11: 'Accessibilité limitée',
+};
+export function alertEffectLabel(effect) {
+  return ALERT_EFFECT_LABELS[effect] || null;
+}
+
+/** Extrait le texte FR (ou premier disponible) d'un TranslatedString GTFS-RT. */
+export function translatedText(ts) {
+  const list = ts?.translation || [];
+  const fr = list.find((t) => (t.language || '').toLowerCase().startsWith('fr'));
+  return (fr || list[0])?.text || '';
+}
+
+/** Pastille "Direct" à afficher à côté d'un horaire mis à jour en temps réel. */
+export function realtimeBadgeHtml() {
+  return `<span class="rt-badge" title="Horaire mis à jour en temps réel" aria-label="Horaire mis à jour en temps réel">Direct</span>`;
 }

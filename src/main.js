@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { registerRoute, setNotFound, startRouter } from './router.js';
 import { headerHtml, footerHtml, bottomNavHtml, disclaimerBannerHtml, mountLayoutBehavior } from './components/layout.js';
 import { initGtfs, subscribe, getState } from './gtfs/store.js';
+import { initRealtime } from './gtfs/realtime.js';
 import { registerServiceWorker, setupInstallPrompt } from './pwa/register.js';
 import { mountTripModal } from './components/tripModal.js';
 
@@ -100,6 +101,7 @@ startRouter(outlet);
 /* GTFS + PWA                                                           */
 /* ------------------------------------------------------------------ */
 initGtfs();
+initRealtime();
 registerServiceWorker();
 setupInstallPrompt();
 

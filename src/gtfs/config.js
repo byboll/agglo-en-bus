@@ -2,6 +2,10 @@
 // Le fichier est téléchargé et analysé directement dans le navigateur du visiteur.
 export const GTFS_URL = 'https://gtfs-rt.infra-hubup.fr/cagtd/current/gtfs';
 
+// Flux GTFS-Realtime (trip updates + positions véhicules + alertes trafic), même exploitant.
+export const GTFS_RT_URL = 'https://gtfs-rt.infra-hubup.fr/cagtd/realtime';
+export const GTFS_RT_POLL_MS = 20000;
+
 // Incrémenter si la structure des données mises en cache change, pour invalider
 // automatiquement les caches sessionStorage existants chez les visiteurs.
 export const CACHE_VERSION = 1;
