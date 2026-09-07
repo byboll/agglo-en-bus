@@ -7,6 +7,7 @@ import { routeType } from '../gtfs/config.js';
 import { createRouteMap } from '../components/routeMap.js';
 import { navigate } from '../router.js';
 import { subscribeRt } from '../gtfs/realtime.js';
+import { openTripModal } from '../components/tripModal.js';
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
@@ -205,7 +206,7 @@ export async function render({ params }) {
           if (!mapApi) return;
           const vehicles = vehiclesForRoute(route.route_id, currentDirIdx).map((v) => ({
             lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
-            tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+            tripId: v.trip.tripId, label: route.route_short_name, color: bg, icon: type.icon,
           }));
           mapApi.updateVehicles(vehicles);
         };
@@ -256,6 +257,7 @@ export async function render({ params }) {
             stops: stopsForMap,
             highlightColor: bg,
             onStopClick: (stopId) => navigate(`/arrets/${stopId}`),
+            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
           });
           updateVehicles();
 

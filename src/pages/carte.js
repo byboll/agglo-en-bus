@@ -5,6 +5,7 @@ import { routeColors, shapesForRoute, vehiclesForRoute } from '../gtfs/helpers.j
 import { routeType } from '../gtfs/config.js';
 import { createVehicleLayer } from '../components/vehicleMarkers.js';
 import { subscribeRt } from '../gtfs/realtime.js';
+import { openTripModal } from '../components/tripModal.js';
 
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
@@ -48,6 +49,12 @@ function initCarte(root, data, indices) {
     maxZoom: 19,
   }).addTo(map);
 
+  // Pane dédiée aux arrêts, au-dessus de celle des tracés (overlayPane, z-index 400) — garantit
+  // que les arrêts restent visuellement par-dessus les tracés quel que soit l'ordre dans lequel
+  // les calques sont ajoutés/retirés au fil du filtrage.
+  map.createPane('stopsPane');
+  map.getPane('stopsPane').style.zIndex = 450;
+
   // Tracés par ligne -----------------------------------------------------
   const sortedRoutes = sortRoutes(data.routes);
   const routeLayers = {}; // route_id -> L.LayerGroup
@@ -67,7 +74,11 @@ function initCarte(root, data, indices) {
   }
 
   // Arrêts -----------------------------------------------------------------
+  // Un arrêt n'est affiché que s'il est desservi par au moins une ligne actuellement cochée
+  // (voir updateStopsVisibility) — on garde donc une référence par arrêt plutôt que de tout
+  // ajouter en bloc à la carte.
   const stopsLayer = L.layerGroup().addTo(map);
+  const stopEntries = [];
   for (const stop of stopsWithCoords) {
     const point = [+stop.stop_lat, +stop.stop_lon];
     const routeIds = [...(indices.stopRoutes[stop.stop_id] || [])];
@@ -91,22 +102,39 @@ function initCarte(root, data, indices) {
 
     // Zone tactile élargie et invisible, superposée au picto : sur mobile un rayon de 5px est
     // trop petit à taper précisément. Le picto visible garde sa taille (voir marker plus bas).
-    L.circleMarker(point, { radius: 14, stroke: false, fill: true, fillOpacity: 0 })
-      .bindPopup(popupHtml)
-      .addTo(stopsLayer);
+    const hitMarker = L.circleMarker(point, { radius: 14, stroke: false, fill: true, fillOpacity: 0, pane: 'stopsPane' })
+      .bindPopup(popupHtml);
 
     const marker = L.circleMarker(point, {
-      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1,
-    });
-    marker.bindPopup(popupHtml);
-    marker.addTo(stopsLayer);
+      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1, pane: 'stopsPane',
+    }).bindPopup(popupHtml);
+
+    stopEntries.push({ routeIds, hitMarker, marker });
+  }
+
+  function updateStopsVisibility() {
+    const checkedRouteIds = new Set(
+      [...filterListEl.querySelectorAll('input[type="checkbox"]:checked')].map((cb) => cb.dataset.routeId)
+    );
+    for (const entry of stopEntries) {
+      const visible = entry.routeIds.some((rid) => checkedRouteIds.has(rid));
+      if (visible) {
+        entry.hitMarker.addTo(stopsLayer);
+        entry.marker.addTo(stopsLayer);
+      } else {
+        stopsLayer.removeLayer(entry.hitMarker);
+        stopsLayer.removeLayer(entry.marker);
+      }
+    }
   }
 
   const bounds = L.latLngBounds(stopsWithCoords.map((s) => [+s.stop_lat, +s.stop_lon]));
   map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
 
   // Véhicules en circulation — uniquement sur les lignes actuellement cochées dans le filtre.
-  const vehicleLayer = createVehicleLayer(map);
+  const vehicleLayer = createVehicleLayer(map, {
+    onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+  });
   const updateVehicles = () => {
     const visibleRouteIds = [...filterListEl.querySelectorAll('input[type="checkbox"]:checked')]
       .map((cb) => cb.dataset.routeId);
@@ -116,7 +144,7 @@ function initCarte(root, data, indices) {
       const { bg } = routeColors(route, type);
       return vehiclesForRoute(rid).map((v) => ({
         lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
-        tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+        tripId: v.trip.tripId, label: route?.route_short_name, color: bg, icon: type.icon,
       }));
     });
     vehicleLayer.update(vehicles);
@@ -147,6 +175,7 @@ function initCarte(root, data, indices) {
       if (!layer) return;
       if (cb.checked) layer.addTo(map);
       else map.removeLayer(layer);
+      updateStopsVisibility();
       updateVehicles();
     });
   });
@@ -156,6 +185,7 @@ function initCarte(root, data, indices) {
       cb.checked = true;
       routeLayers[cb.dataset.routeId]?.addTo(map);
     });
+    updateStopsVisibility();
     updateVehicles();
   });
   root.querySelector('#carte-filter-none')?.addEventListener('click', () => {
@@ -164,9 +194,11 @@ function initCarte(root, data, indices) {
       const layer = routeLayers[cb.dataset.routeId];
       if (layer) map.removeLayer(layer);
     });
+    updateStopsVisibility();
     updateVehicles();
   });
 
+  updateStopsVisibility();
   updateVehicles();
   const unsubscribeRt = subscribeRt(updateVehicles);
 

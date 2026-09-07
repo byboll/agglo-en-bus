@@ -2,7 +2,7 @@
 // et la page Itinéraire (clic sur un trajet en transport en commun proposé). Montée UNE SEULE
 // FOIS dans la coquille de l'app (voir mountTripModal(), appelée depuis main.js) ; les pages
 // l'ouvrent simplement via openTripModal(...).
-import { routeColors, secsToTime, timeToSecs, realtimeStopTime, realtimeBadgeHtml } from '../gtfs/helpers.js';
+import { routeColors, secsToTime, timeToSecs, realtimeStatusForStop, realtimeBadgeHtml } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 
 let rootEl = null;
@@ -85,16 +85,18 @@ export function openTripModal(data, indices, { tripId, boardStopId, alightStopId
     const active = !hasRange || inRange;
     if (isAlight) inRange = false;
     const staticSecs = timeToSecs(st.dep || st.arr || '');
-    const rt = realtimeStopTime(tripId, st.stop_id);
-    const secs = rt ? (rt.depSecs ?? rt.arrSecs) : staticSecs;
+    const rtStatus = realtimeStatusForStop(tripId, st.stop_id);
+    const isVoid = rtStatus.status === 'skipped' || rtStatus.status === 'cancelled';
+    const voidTitle = rtStatus.status === 'cancelled' ? 'Course annulée' : 'Arrêt supprimé pour cette course';
+    const secs = rtStatus.status === 'realtime' ? (rtStatus.depSecs ?? rtStatus.arrSecs) : staticSecs;
     return `
       <li class="trip-modal-row${active ? ' is-active' : ''}${isBoard ? ' is-board' : ''}${isAlight ? ' is-alight' : ''}">
         <span class="trip-modal-dot" aria-hidden="true"></span>
         <span class="trip-modal-stop">${escapeHtml(stop?.stop_name || st.stop_id)}</span>
         ${isBoard ? '<span class="status-pill status-ok">Montée</span>' : ''}
         ${isAlight ? '<span class="status-pill status-info">Descente</span>' : ''}
-        ${rt ? realtimeBadgeHtml() : ''}
-        <span class="mono trip-modal-time">${secsToTime(secs)}</span>
+        ${rtStatus.status === 'realtime' ? realtimeBadgeHtml() : ''}
+        <span class="mono trip-modal-time${isVoid ? ' rt-time-void' : ''}"${isVoid ? ` title="${escapeHtml(voidTitle)}"` : ''}>${secsToTime(secs)}</span>
       </li>`;
   }).join('');
 

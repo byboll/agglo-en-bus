@@ -15,9 +15,11 @@ export function vehicleDivIcon(emoji, color) {
 
 /**
  * @param {import('leaflet').Map} map
+ * @param {{onVehicleClick?: (tripId:string)=>void}} [opts] - appelé au clic sur un véhicule,
+ *   pour ouvrir la modale de détail de la course correspondante.
  * @returns {{update:(vehicles:Array<{lat:number,lon:number,tripId:string,label?:string,color:string,icon?:string,bearing?:number}>)=>void, destroy:()=>void}}
  */
-export function createVehicleLayer(map) {
+export function createVehicleLayer(map, { onVehicleClick } = {}) {
   const layer = L.layerGroup().addTo(map);
   const markersByTripId = {};
 
@@ -35,7 +37,9 @@ export function createVehicleLayer(map) {
         if (el) el.style.cssText += rotation;
       } else {
         const marker = L.marker([v.lat, v.lon], { icon: vehicleDivIcon(v.icon || '🚌', v.color), interactive: true, zIndexOffset: 500 });
-        if (v.label) marker.bindTooltip(`Bus ${v.label}`, { direction: 'top' });
+        // Le tooltip identifie la ligne (v.label = route_short_name), pas le véhicule lui-même.
+        if (v.label) marker.bindTooltip(`Ligne ${v.label}`, { direction: 'top' });
+        if (onVehicleClick) marker.on('click', () => onVehicleClick(v.tripId));
         marker.addTo(layer);
         markersByTripId[v.tripId] = marker;
         const el = marker.getElement()?.querySelector('.veh-marker-inner');

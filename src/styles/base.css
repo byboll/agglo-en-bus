@@ -196,6 +196,10 @@ main {
 }
 .rt-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
+/* Horaire théorique d'un arrêt supprimé (SKIPPED) ou d'une course annulée (CANCELED) — voir
+   gtfs/helpers.js realtimeStatusForStop(). */
+.rt-time-void { color: var(--color-magenta); text-decoration: line-through; }
+
 /* Marqueur véhicule sur les cartes Leaflet (voir components/vehicleMarkers.js). */
 .veh-marker-inner {
   width: 26px; height: 26px; border-radius: 50%; background: var(--color-surface);

@@ -314,27 +314,42 @@ function isNetworkWideAlertEntity(ie) {
   return !ie.routeId && !ie.stopId && !ie.trip;
 }
 
-/** Horaire temps réel d'un trip à un arrêt donné, ou null si indisponible/périmé/arrêt supprimé. */
-export function realtimeStopTime(tripId, stopId, referenceDate) {
-  if (!isRtFresh()) return null;
+/** Statut temps réel d'un trip à un arrêt donné :
+ *  - 'realtime' : horaire mis à jour disponible (depSecs/arrSecs renseignés) ;
+ *  - 'cancelled' : la course entière est annulée (TripDescriptor.schedule_relationship=CANCELED) ;
+ *  - 'skipped' : cet arrêt précis est supprimé pour cette course (StopTimeUpdate.schedule_relationship=SKIPPED) ;
+ *  - 'theoretical' : pas d'info temps réel exploitable, repli sur l'horaire théorique. */
+export function realtimeStatusForStop(tripId, stopId, referenceDate) {
+  if (!isRtFresh()) return { status: 'theoretical' };
   const tu = getRtState().tripUpdatesByTripId[tripId];
-  const stu = tu?.byStop?.[stopId];
-  if (!stu || stu.scheduleRelationship === 1 /* SKIPPED */) return null;
+  if (!tu) return { status: 'theoretical' };
+  if (tu.trip.scheduleRelationship === 3 /* CANCELED */) return { status: 'cancelled' };
+  const stu = tu.byStop?.[stopId];
+  if (!stu) return { status: 'theoretical' };
+  if (stu.scheduleRelationship === 1 /* SKIPPED */) return { status: 'skipped' };
   const depTime = stu.departure?.time;
   const arrTime = stu.arrival?.time;
-  if (depTime == null && arrTime == null) return null;
+  if (depTime == null && arrTime == null) return { status: 'theoretical' };
   const depSecs = depTime != null ? epochToLocalSecs(depTime, referenceDate) : undefined;
   const arrSecs = arrTime != null ? epochToLocalSecs(arrTime, referenceDate) : undefined;
-  return { depSecs: depSecs ?? arrSecs, arrSecs: arrSecs ?? depSecs };
+  return { status: 'realtime', depSecs: depSecs ?? arrSecs, arrSecs: arrSecs ?? depSecs };
 }
 
-/** Ré-écrit `depSecs` avec l'horaire temps réel s'il est disponible pour ce trip/arrêt, et ajoute
- *  `isRealtime` (à utiliser pour afficher le picto "Direct") — sinon renvoie `r` avec
- *  `isRealtime:false`, sans toucher à `depSecs` (repli sur l'horaire théorique déjà présent). */
+/** Horaire temps réel d'un trip à un arrêt donné, ou null si indisponible/périmé/arrêt supprimé/
+ *  course annulée (utiliser realtimeStatusForStop directement pour distinguer ces deux derniers cas). */
+export function realtimeStopTime(tripId, stopId, referenceDate) {
+  const s = realtimeStatusForStop(tripId, stopId, referenceDate);
+  return s.status === 'realtime' ? { depSecs: s.depSecs, arrSecs: s.arrSecs } : null;
+}
+
+/** Ré-écrit `depSecs` avec l'horaire temps réel s'il est disponible pour ce trip/arrêt, ajoute
+ *  `isRealtime` (picto "Direct") et `rtStatus` ('realtime'|'skipped'|'cancelled'|'theoretical' —
+ *  les deux premiers appellent un rendu "horaire théorique en rouge barré" côté page). Sans
+ *  correspondance temps réel exploitable, `depSecs` n'est pas touché (repli théorique). */
 export function applyRealtime(r, referenceDate) {
-  const rt = realtimeStopTime(r.trip.trip_id, r.stopTime.stop_id, referenceDate || r.date);
-  if (!rt) return { ...r, isRealtime: false };
-  return { ...r, depSecs: rt.depSecs, isRealtime: true };
+  const s = realtimeStatusForStop(r.trip.trip_id, r.stopTime.stop_id, referenceDate || r.date);
+  if (s.status === 'realtime') return { ...r, depSecs: s.depSecs, isRealtime: true, rtStatus: 'realtime' };
+  return { ...r, isRealtime: false, rtStatus: s.status };
 }
 
 /** Véhicules actuellement en circulation sur une ligne (et un sens, si précisé). */

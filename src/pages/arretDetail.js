@@ -38,13 +38,15 @@ function buildDeparturesHtml(data, indices, stopId) {
         const type = routeType(r.route?.route_type);
         const { bg, text } = routeColors(r.route, type);
         const label = dayLabel(r.dayOffset, r.date);
+        const isVoid = r.rtStatus === 'skipped' || r.rtStatus === 'cancelled';
+        const voidTitle = r.rtStatus === 'cancelled' ? 'Course annulée' : 'Arrêt supprimé pour cette course';
         return `
           <button type="button" class="card arret-dep-row" data-trip-id="${escapeHtml(r.trip.trip_id)}">
             <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(r.route?.route_short_name || '?')}</span>
             <span class="arret-dep-headsign">${r.trip.trip_headsign ? `→ ${escapeHtml(r.trip.trip_headsign)}` : ''}</span>
             <span class="arret-dep-time-col">
-              ${r.isRealtime ? realtimeBadgeHtml() : (label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : '')}
-              <span class="mono arret-dep-time">${secsToTime(r.depSecs)}</span>
+              ${r.isRealtime ? realtimeBadgeHtml() : (!isVoid && label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : '')}
+              <span class="mono arret-dep-time${isVoid ? ' rt-time-void' : ''}"${isVoid ? ` title="${escapeHtml(voidTitle)}"` : ''}>${secsToTime(r.depSecs)}</span>
             </span>
           </button>`;
       }).join('')}
@@ -74,10 +76,15 @@ function buildFullScheduleHtml(data, indices, stopId, date) {
             ${headsign ? `<span class="text-muted">→ ${escapeHtml(headsign)}</span>` : ''}
           </div>
           <div class="arret-schedule-times">
-            ${items.map((r) => `
-              <button type="button" class="arret-schedule-chip mono${r.isRealtime ? ' is-realtime' : ''}" data-trip-id="${escapeHtml(r.trip.trip_id)}" title="${escapeHtml(r.trip.trip_headsign || '')}${r.isRealtime ? ' — horaire temps réel' : ''}">
+            ${items.map((r) => {
+              const isVoid = r.rtStatus === 'skipped' || r.rtStatus === 'cancelled';
+              const voidTitle = r.rtStatus === 'cancelled' ? 'Course annulée' : 'Arrêt supprimé pour cette course';
+              const title = isVoid ? voidTitle : `${r.trip.trip_headsign || ''}${r.isRealtime ? ' — horaire temps réel' : ''}`;
+              return `
+              <button type="button" class="arret-schedule-chip mono${r.isRealtime ? ' is-realtime' : ''}${isVoid ? ' rt-time-void' : ''}" data-trip-id="${escapeHtml(r.trip.trip_id)}" title="${escapeHtml(title)}">
                 ${secsToTime(r.depSecs)}
-              </button>`).join('')}
+              </button>`;
+            }).join('')}
           </div>
         </div>`;
     })
@@ -200,6 +207,7 @@ export async function render({ params }) {
               return { lines: shapesForRoute(data, route.route_id), color: bg };
             }),
             stops: [{ id: stop.stop_id, name: stop.stop_name, lat: +stop.stop_lat, lon: +stop.stop_lon }],
+            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
           });
           mapApi.highlightStop(stop.stop_id);
         } else {
@@ -214,7 +222,7 @@ export async function render({ params }) {
             const { bg } = routeColors(route, type);
             return vehiclesForRoute(route.route_id).map((v) => ({
               lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
-              tripId: v.trip.tripId, label: v.vehicle?.label, color: bg, icon: type.icon,
+              tripId: v.trip.tripId, label: route.route_short_name, color: bg, icon: type.icon,
             }));
           });
           mapApi.updateVehicles(vehicles);

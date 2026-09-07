@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
 import {
   activeServiceIdsForDate, timeToSecs, secsToTime, secsToDur, searchStops, routeColors,
-  intermediateStopsForLeg, realtimeStopTime, realtimeBadgeHtml, vehicleForTrip,
+  intermediateStopsForLeg, realtimeStatusForStop, realtimeBadgeHtml, vehicleForTrip,
   alertsForRoute, alertEffectLabel, translatedText,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
@@ -114,15 +114,18 @@ function transitStepHtml(leg, data, indices) {
         </ul>
       </details>`
     : '';
-  const depRt = realtimeStopTime(leg.trip_id, leg.from_stop);
-  const arrRt = realtimeStopTime(leg.trip_id, leg.to_stop);
-  const depSecs = depRt?.depSecs ?? leg.dep_time;
-  const arrSecs = arrRt?.arrSecs ?? leg.arr_time;
+  const depStatus = realtimeStatusForStop(leg.trip_id, leg.from_stop);
+  const arrStatus = realtimeStatusForStop(leg.trip_id, leg.to_stop);
+  const depSecs = depStatus.status === 'realtime' ? depStatus.depSecs : leg.dep_time;
+  const arrSecs = arrStatus.status === 'realtime' ? arrStatus.arrSecs : leg.arr_time;
+  const depVoid = depStatus.status === 'skipped' || depStatus.status === 'cancelled';
+  const arrVoid = arrStatus.status === 'skipped' || arrStatus.status === 'cancelled';
+  const voidTitle = (s) => (s === 'cancelled' ? 'Course annulée' : 'Arrêt supprimé pour cette course');
   return `
     <div class="itin-step itin-step-transit">
       <div class="itin-step-row">
-        <span class="mono">${secsToTime(depSecs)}</span>
-        ${depRt ? realtimeBadgeHtml() : ''}
+        <span class="mono${depVoid ? ' rt-time-void' : ''}"${depVoid ? ` title="${escapeHtml(voidTitle(depStatus.status))}"` : ''}>${secsToTime(depSecs)}</span>
+        ${depStatus.status === 'realtime' ? realtimeBadgeHtml() : ''}
         <span>${escapeHtml(fromStop?.stop_name || leg.from_stop)}</span>
       </div>
       <button type="button" class="itin-step-line" data-trip-id="${escapeHtml(leg.trip_id)}" data-board="${escapeHtml(leg.from_stop)}" data-alight="${escapeHtml(leg.to_stop)}">
@@ -132,8 +135,8 @@ function transitStepHtml(leg, data, indices) {
       </button>
       ${interHtml}
       <div class="itin-step-row">
-        <span class="mono">${secsToTime(arrSecs)}</span>
-        ${arrRt ? realtimeBadgeHtml() : ''}
+        <span class="mono${arrVoid ? ' rt-time-void' : ''}"${arrVoid ? ` title="${escapeHtml(voidTitle(arrStatus.status))}"` : ''}>${secsToTime(arrSecs)}</span>
+        ${arrStatus.status === 'realtime' ? realtimeBadgeHtml() : ''}
         <span>${escapeHtml(toStop?.stop_name || leg.to_stop)}</span>
       </div>
     </div>`;
@@ -322,7 +325,7 @@ function initItineraire(root, data, indices) {
         const { bg } = routeColors(route, type);
         return {
           lat: v.position.latitude, lon: v.position.longitude, bearing: v.position.bearing,
-          tripId: leg.trip_id, label: v.vehicle?.label, color: bg, icon: type.icon,
+          tripId: leg.trip_id, label: route?.route_short_name, color: bg, icon: type.icon,
         };
       })
       .filter(Boolean);
@@ -381,7 +384,9 @@ function initItineraire(root, data, indices) {
     if (map) return map;
     map = L.map(mapEl, { attributionControl: true });
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
-    vehicleLayerRef.layer = createVehicleLayer(map);
+    vehicleLayerRef.layer = createVehicleLayer(map, {
+      onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+    });
     return map;
   }
 

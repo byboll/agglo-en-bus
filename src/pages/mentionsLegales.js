@@ -30,8 +30,16 @@ export async function render() {
         jamais stocké de façon permanente : seule la session de navigation en cours en garde une copie temporaire,
         effacée à la fermeture de l'onglet ou du navigateur. Ces données restent la propriété de
         leur émetteur. Ce site n'en garantit ni l'exactitude ni la disponibilité en temps réel : les horaires
-        affichés sont des <strong>horaires théoriques</strong>, issus des fichiers d'horaires publiés, et non
-        d'un suivi en temps réel des véhicules.
+        affichés sont par défaut des <strong>horaires théoriques</strong>, issus des fichiers d'horaires publiés.
+      </p>
+      <p>
+        Lorsqu'elle est disponible, une information <strong>temps réel</strong> (retards, position des véhicules,
+        perturbations en cours) vient compléter ou remplacer ces horaires théoriques — repérée sur le site par le
+        picto <span class="rt-badge" style="vertical-align:middle;">Direct</span>. Cette information provient du
+        flux GTFS-Realtime du même exploitant, accessible à l'adresse
+        <br><code>https://gtfs-rt.infra-hubup.fr/cagtd/realtime</code>, également récupéré directement par le
+        navigateur du visiteur (rafraîchi toutes les 20 secondes environ), sans stockage permanent. Comme pour les
+        données statiques, ce site n'en garantit ni l'exactitude ni la disponibilité continue.
       </p>
 
       <h2>Absence de garantie</h2>

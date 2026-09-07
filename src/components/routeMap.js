@@ -16,10 +16,11 @@ const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyrigh
  *   groupes de tracés (un groupe par ligne pour un usage multi-lignes), chacun avec sa couleur.
  * @param {Array<{id:string, name:string, lat:number, lon:number}>} [opts.stops] - arrêts à afficher.
  * @param {(stopId:string)=>void} [opts.onStopClick] - appelé au clic sur un marqueur d'arrêt.
+ * @param {(tripId:string)=>void} [opts.onVehicleClick] - appelé au clic sur un marqueur véhicule.
  * @param {string} [opts.highlightColor] - couleur du marqueur mis en avant par highlightStop().
- * @returns {{map:import('leaflet').Map, highlightStop:(stopId:string|null)=>void, destroy:()=>void}}
+ * @returns {{map:import('leaflet').Map, highlightStop:(stopId:string|null)=>void, updateVehicles:Function, destroy:()=>void}}
  */
-export function createRouteMap(mapEl, { routeLines = [], stops = [], onStopClick, highlightColor = '#1414c8' } = {}) {
+export function createRouteMap(mapEl, { routeLines = [], stops = [], onStopClick, onVehicleClick, highlightColor = '#1414c8' } = {}) {
   const map = L.map(mapEl, { attributionControl: true });
   L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
 
@@ -57,7 +58,7 @@ export function createRouteMap(mapEl, { routeLines = [], stops = [], onStopClick
     }
   }
 
-  const vehicleLayer = createVehicleLayer(map);
+  const vehicleLayer = createVehicleLayer(map, { onVehicleClick });
 
   let destroyed = false;
   const fixSize = () => { if (!destroyed) map.invalidateSize(); };
