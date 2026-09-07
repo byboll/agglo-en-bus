@@ -94,6 +94,7 @@ function legPillsHtml(journey, indices) {
 
 function transitStepHtml(leg, data, indices) {
   const route = indices.routesById[leg.route_id];
+  const trip = indices.tripsById[leg.trip_id];
   const type = routeType(route?.route_type);
   const { bg, text } = routeColors(route, type);
   const fromStop = indices.stopsById[leg.from_stop];
@@ -118,7 +119,7 @@ function transitStepHtml(leg, data, indices) {
       </div>
       <button type="button" class="itin-step-line" data-trip-id="${escapeHtml(leg.trip_id)}" data-board="${escapeHtml(leg.from_stop)}" data-alight="${escapeHtml(leg.to_stop)}">
         <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(route?.route_short_name || '?')}</span>
-        <span class="text-muted">${escapeHtml(route?.route_long_name || '')}</span>
+        <span class="text-muted">→ ${escapeHtml(trip?.trip_headsign || route?.route_long_name || '')}</span>
         <span class="itin-step-line-hint">Détail de la course ›</span>
       </button>
       ${interHtml}
@@ -198,6 +199,13 @@ function drawJourneyOnMap(map, journey, data, indices, currentLayerRef) {
       midPts.forEach((pt) => {
         L.circleMarker(pt, { radius: 4, weight: 1.5, color: bg, fillColor: '#ffffff', fillOpacity: 1 }).addTo(group);
       });
+      // Montée/descente : plus visibles que les arrêts intermédiaires (rayon plus grand, plein).
+      L.circleMarker(p1, { radius: 7, weight: 2, color: '#101024', fillColor: bg, fillOpacity: 1 })
+        .bindPopup(`<strong>Montée</strong><br>${escapeHtml(from?.stop_name || '')}`)
+        .addTo(group);
+      L.circleMarker(p2, { radius: 7, weight: 2, color: '#101024', fillColor: bg, fillOpacity: 1 })
+        .bindPopup(`<strong>Descente</strong><br>${escapeHtml(to?.stop_name || '')}`)
+        .addTo(group);
       allPts.push(p1, ...midPts, p2);
     } else {
       L.polyline([p1, p2], { color: '#5c5c74', weight: 4, opacity: 0.8, dashArray: '2,10', lineCap: 'round' }).addTo(group);

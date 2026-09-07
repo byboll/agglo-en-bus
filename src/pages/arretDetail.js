@@ -38,7 +38,7 @@ function buildDeparturesHtml(data, indices, stopId) {
         return `
           <button type="button" class="card arret-dep-row" data-trip-id="${escapeHtml(r.trip.trip_id)}">
             <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(r.route?.route_short_name || '?')}</span>
-            <span class="arret-dep-headsign">${escapeHtml(r.trip.trip_headsign || '')}</span>
+            <span class="arret-dep-headsign">${r.trip.trip_headsign ? `→ ${escapeHtml(r.trip.trip_headsign)}` : ''}</span>
             <span class="arret-dep-time-col">
               ${label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : ''}
               <span class="mono arret-dep-time">${secsToTime(r.depSecs)}</span>

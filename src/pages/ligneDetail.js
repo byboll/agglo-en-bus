@@ -81,33 +81,39 @@ export async function render({ params }) {
         --ligne-color: var(--color-blue);
         list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
       }
-      .ligne-stops-list li {
-        position: relative; padding: var(--sp-1) 0 var(--sp-1) var(--sp-6);
-        border-left: 3px solid var(--ligne-color); margin-left: var(--sp-2);
-        transition: background-color .12s ease;
-      }
+      /* Le trait et la pastille sont des éléments à part (pas un border-left sur le <li>) afin
+         que : 1) le fond rose au survol (background sur le <li>, qui part de x:0) puisse déborder
+         à gauche du trait sans que border-radius ne le déforme, et 2) le trait de chaque <li>
+         puisse être coupé pile à mi-hauteur pour le premier/dernier arrêt (jamais avant/après). */
+      .ligne-stops-list li { position: relative; padding: var(--sp-3) 0 var(--sp-3) 56px; }
       .ligne-stops-list li[hidden] { display: none; }
-      .ligne-stops-list li:last-child { border-left-color: transparent; }
-      /* Pastilles dans le même style que les marqueurs de la carte (blanc, filet foncé) — au
-         survol, elles se colorent comme le marqueur mis en avant sur la carte (highlightStop). */
       .ligne-stops-list li::before {
-        content: ''; position: absolute; left: calc(-1 * 8px); top: 50%; transform: translateY(-50%);
-        width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box;
-        background: var(--color-surface); border: 2.5px solid var(--color-ink);
-        transition: background-color .12s ease, border-color .12s ease, width .12s ease, height .12s ease, left .12s ease;
+        content: ''; position: absolute; left: 22px; top: 0; bottom: 0; width: 4px;
+        background: var(--ligne-color);
       }
-      .ligne-stops-list li:first-child::before, .ligne-stops-list li:last-child::before {
-        width: 18px; height: 18px; left: calc(-1 * 10px);
+      .ligne-stops-list li:first-child::before { top: 50%; }
+      .ligne-stops-list li:last-child::before { bottom: 50%; }
+      /* Pastille dans le même style que les marqueurs de la carte (blanc, filet foncé) — au
+         survol, elle se colore comme le marqueur mis en avant sur la carte (highlightStop). */
+      .ligne-stops-list li::after {
+        content: ''; position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+        width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box; z-index: 1;
+        background: var(--color-surface); border: 3px solid var(--color-ink);
       }
-      .ligne-stops-list li.is-hovered { background: var(--color-surface-alt); border-radius: var(--radius-card); }
-      .ligne-stops-list li.is-hovered::before { background: var(--ligne-color); border-color: var(--ligne-color); }
+      .ligne-stops-list li.is-hovered {
+        background: color-mix(in srgb, var(--ligne-color) 10%, var(--color-surface));
+        border-radius: var(--radius-card);
+      }
+      .ligne-stops-list li.is-hovered::after {
+        border-color: var(--ligne-color);
+        background: radial-gradient(circle, var(--ligne-color) 0 6px, var(--color-surface) 6px 100%);
+      }
       .ligne-stop-link {
         display: flex; align-items: center; gap: var(--sp-2); min-height: 44px;
-        text-decoration: none; color: inherit;
+        padding-right: var(--sp-2); text-decoration: none; color: var(--color-ink);
       }
-      .ligne-stop-name { flex: 1; min-width: 0; font-weight: 500; }
-      .ligne-stop-link:hover .ligne-stop-name { text-decoration: underline; }
-      .ligne-stop-chevron { flex-shrink: 0; color: var(--color-muted); font-size: 1.2em; line-height: 1; }
+      .ligne-stop-name { flex: 1; min-width: 0; font-weight: 700; }
+      .ligne-stop-chevron { flex-shrink: 0; color: var(--color-ink-soft); font-size: 1.2em; line-height: 1; }
     </style>
     <div class="container section">
       ${gtfsStatusBlockHtml()}

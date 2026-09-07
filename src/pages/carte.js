@@ -67,9 +67,7 @@ function initCarte(root, data, indices) {
   // Arrêts -----------------------------------------------------------------
   const stopsLayer = L.layerGroup().addTo(map);
   for (const stop of stopsWithCoords) {
-    const marker = L.circleMarker([+stop.stop_lat, +stop.stop_lon], {
-      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1,
-    });
+    const point = [+stop.stop_lat, +stop.stop_lon];
     const routeIds = [...(indices.stopRoutes[stop.stop_id] || [])];
     const pillsHtml = routeIds
       .map((rid) => indices.routesById[rid])
@@ -81,13 +79,24 @@ function initCarte(root, data, indices) {
         return `<span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(r.route_short_name || '?')}</span>`;
       })
       .join(' ');
-    marker.bindPopup(`
+    const popupHtml = `
       <div class="carte-popup">
         <strong>${escapeHtml(stop.stop_name || 'Arrêt')}</strong>
         <div class="carte-popup-pills">${pillsHtml || '<span class="text-muted">Aucune ligne connue</span>'}</div>
         <a href="/arrets/${encodeURIComponent(stop.stop_id)}" data-link class="btn btn-outline btn-sm">Voir la fiche arrêt</a>
       </div>
-    `);
+    `;
+
+    // Zone tactile élargie et invisible, superposée au picto : sur mobile un rayon de 5px est
+    // trop petit à taper précisément. Le picto visible garde sa taille (voir marker plus bas).
+    L.circleMarker(point, { radius: 14, stroke: false, fill: true, fillOpacity: 0 })
+      .bindPopup(popupHtml)
+      .addTo(stopsLayer);
+
+    const marker = L.circleMarker(point, {
+      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1,
+    });
+    marker.bindPopup(popupHtml);
     marker.addTo(stopsLayer);
   }
 
