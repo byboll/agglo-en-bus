@@ -12,17 +12,45 @@ function escapeHtml(s) {
   }[c]));
 }
 
-function buildDirectionHtml(data, indices, allTripsForDir) {
+/** Intitulé le plus fréquent parmi les trips d'un sens — sert de nom de direction. */
+function mostCommonHeadsign(trips) {
+  const counts = new Map();
+  for (const t of trips) {
+    if (!t.trip_headsign) continue;
+    counts.set(t.trip_headsign, (counts.get(t.trip_headsign) || 0) + 1);
+  }
+  let best = null;
+  let bestCount = 0;
+  for (const [hs, c] of counts) {
+    if (c > bestCount) { best = hs; bestCount = c; }
+  }
+  return best;
+}
+
+function buildDirectionHtml(data, indices, allTripsForDir, bg) {
   // Le tracé/liste d'arrêts d'une ligne est une propriété de la ligne elle-même : il doit rester
   // visible même un jour où ce sens ne circule pas (ex. ligne scolaire un dimanche).
   const canonStops = canonicalStopOrder(data, allTripsForDir);
 
   const stopsHtml = canonStops.length
-    ? `<ol class="ligne-stops-list">${canonStops.map((sid) => {
+    ? `
+      <div class="field ligne-stop-search-field">
+        <label for="ligne-stop-search">Rechercher un arrêt de cette ligne</label>
+        <input class="input" id="ligne-stop-search" type="search" placeholder="Rechercher un arrêt…" autocomplete="off">
+      </div>
+      <ol class="ligne-stops-list" style="--ligne-color:${bg};">${canonStops.map((sid) => {
         const stop = indices.stopsById[sid];
         if (!stop) return '';
-        return `<li data-stop-id="${escapeHtml(sid)}"><a href="/arrets/${encodeURIComponent(sid)}" data-link>${escapeHtml(stop.stop_name)}</a></li>`;
-      }).join('')}</ol>`
+        const name = stop.stop_name || '';
+        return `
+          <li data-stop-id="${escapeHtml(sid)}" data-stop-name="${escapeHtml(name.toLowerCase())}">
+            <a href="/arrets/${encodeURIComponent(sid)}" data-link class="ligne-stop-link">
+              <span class="ligne-stop-name">${escapeHtml(name)}</span>
+              <span class="ligne-stop-chevron" aria-hidden="true">›</span>
+            </a>
+          </li>`;
+      }).join('')}</ol>
+      <p class="text-muted" data-role="ligne-stops-empty" hidden>Aucun arrêt ne correspond à votre recherche.</p>`
     : `<p class="text-muted">Aucun arrêt connu pour ce sens.</p>`;
 
   return `
@@ -48,20 +76,38 @@ export async function render({ params }) {
         position: relative; isolation: isolate;
       }
       @media (max-width: 899px) { .ligne-map-col { position: static; } .ligne-map { height: 300px; } }
-      .ligne-stops-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+      .ligne-stop-search-field { margin: 0 0 var(--sp-4); }
+      .ligne-stops-list {
+        --ligne-color: var(--color-blue);
+        list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+      }
       .ligne-stops-list li {
-        position: relative; padding: var(--sp-2) 0 var(--sp-2) var(--sp-5);
-        border-left: 2px solid var(--color-border); margin-left: var(--sp-2); cursor: default;
+        position: relative; padding: var(--sp-1) 0 var(--sp-1) var(--sp-6);
+        border-left: 3px solid var(--ligne-color); margin-left: var(--sp-2);
         transition: background-color .12s ease;
       }
+      .ligne-stops-list li[hidden] { display: none; }
       .ligne-stops-list li:last-child { border-left-color: transparent; }
+      /* Pastilles dans le même style que les marqueurs de la carte (blanc, filet foncé) — au
+         survol, elles se colorent comme le marqueur mis en avant sur la carte (highlightStop). */
       .ligne-stops-list li::before {
-        content: ''; position: absolute; left: calc(-1 * 5px); top: calc(var(--sp-2) + 4px);
-        width: 10px; height: 10px; border-radius: 50%; background: var(--color-blue);
+        content: ''; position: absolute; left: calc(-1 * 8px); top: 50%; transform: translateY(-50%);
+        width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box;
+        background: var(--color-surface); border: 2.5px solid var(--color-ink);
+        transition: background-color .12s ease, border-color .12s ease, width .12s ease, height .12s ease, left .12s ease;
+      }
+      .ligne-stops-list li:first-child::before, .ligne-stops-list li:last-child::before {
+        width: 18px; height: 18px; left: calc(-1 * 10px);
       }
       .ligne-stops-list li.is-hovered { background: var(--color-surface-alt); border-radius: var(--radius-card); }
-      .ligne-stops-list li a { text-decoration: none; color: inherit; font-weight: 500; }
-      .ligne-stops-list li a:hover { text-decoration: underline; }
+      .ligne-stops-list li.is-hovered::before { background: var(--ligne-color); border-color: var(--ligne-color); }
+      .ligne-stop-link {
+        display: flex; align-items: center; gap: var(--sp-2); min-height: 44px;
+        text-decoration: none; color: inherit;
+      }
+      .ligne-stop-name { flex: 1; min-width: 0; font-weight: 500; }
+      .ligne-stop-link:hover .ligne-stop-name { text-decoration: underline; }
+      .ligne-stop-chevron { flex-shrink: 0; color: var(--color-muted); font-size: 1.2em; line-height: 1; }
     </style>
     <div class="container section">
       ${gtfsStatusBlockHtml()}
@@ -105,13 +151,15 @@ export async function render({ params }) {
 
         const hasBoth = allDir0.length > 0 && allDir1.length > 0;
         const bodyContainerId = 'ligne-direction-body';
+        const dir0Label = mostCommonHeadsign(allDir0) || 'Aller';
+        const dir1Label = mostCommonHeadsign(allDir1) || 'Retour';
 
         let toggleHtml = '';
         if (hasBoth) {
           toggleHtml = `
             <div class="segmented" style="margin-bottom:var(--sp-5);" role="group" aria-label="Sens de circulation">
-              <button type="button" class="seg-btn" data-dir="0" aria-pressed="true">Aller</button>
-              <button type="button" class="seg-btn" data-dir="1" aria-pressed="false">Retour</button>
+              <button type="button" class="seg-btn" data-dir="0" aria-pressed="true">→ ${escapeHtml(dir0Label)}</button>
+              <button type="button" class="seg-btn" data-dir="1" aria-pressed="false">→ ${escapeHtml(dir1Label)}</button>
             </div>`;
         }
 
@@ -125,10 +173,32 @@ export async function render({ params }) {
         let mapApi = null;
         const destroyMap = () => { if (mapApi) { mapApi.destroy(); mapApi = null; } };
 
+        const applyStopFilter = (query) => {
+          const q = query.trim().toLowerCase();
+          const items = [...bodyEl.querySelectorAll('.ligne-stops-list li[data-stop-id]')];
+          let anyVisible = false;
+          items.forEach((li) => {
+            const match = !q || (li.dataset.stopName || '').includes(q);
+            li.hidden = !match;
+            if (match) anyVisible = true;
+          });
+          const emptyEl = bodyEl.querySelector('[data-role="ligne-stops-empty"]');
+          if (emptyEl) emptyEl.hidden = !items.length || anyVisible;
+        };
+
         const renderDir = (dirIdx) => {
+          // Conserve la recherche en cours d'un sens à l'autre (bodyEl est entièrement remplacé).
+          const prevQuery = bodyEl.querySelector('#ligne-stop-search')?.value || '';
           destroyMap();
           const allTripsForDir = dirIdx === 1 ? allDir1 : allDir0;
-          bodyEl.innerHTML = buildDirectionHtml(data, indices, allTripsForDir);
+          bodyEl.innerHTML = buildDirectionHtml(data, indices, allTripsForDir, bg);
+
+          const searchInput = bodyEl.querySelector('#ligne-stop-search');
+          if (searchInput) {
+            searchInput.value = prevQuery;
+            searchInput.addEventListener('input', () => applyStopFilter(searchInput.value));
+            if (prevQuery) applyStopFilter(prevQuery);
+          }
 
           const canonStops = canonicalStopOrder(data, allTripsForDir);
           const stopsForMap = canonStops

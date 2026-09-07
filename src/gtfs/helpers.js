@@ -118,6 +118,19 @@ export function nextDeparturesForStop(data, indices, stopId, date, nowSecs, limi
   return results.slice(0, limit);
 }
 
+/** Prochains passages à un arrêt, en complétant sur les jours suivants si la date de départ
+ *  n'a plus assez de passages (ex. dernier bus du soir) — jusqu'à `maxDays` jours regardés. */
+export function nextDeparturesForStopMultiDay(data, indices, stopId, fromDate, nowSecs, limit = 6, maxDays = 8) {
+  const results = [];
+  for (let dayOffset = 0; dayOffset < maxDays && results.length < limit; dayOffset++) {
+    const date = new Date(fromDate);
+    date.setDate(date.getDate() + dayOffset);
+    const dayResults = nextDeparturesForStop(data, indices, stopId, date, dayOffset === 0 ? nowSecs : 0, limit - results.length);
+    for (const r of dayResults) results.push({ ...r, date, dayOffset });
+  }
+  return results;
+}
+
 /** Toutes les courses desservant un arrêt à une date donnée (pas de filtre sur l'heure). */
 export function allDeparturesForStopOnDate(data, indices, stopId, date) {
   const sids = activeServiceIdsForDate(data, date);

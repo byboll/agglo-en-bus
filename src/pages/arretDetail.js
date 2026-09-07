@@ -1,6 +1,6 @@
 import { withGtfsReady, gtfsStatusBlockHtml, mountRetryButtons } from '../utils/gtfsReady.js';
 import {
-  routeColors, nextDeparturesForStop, nowSecsLocal, secsToTime,
+  routeColors, nextDeparturesForStopMultiDay, nowSecsLocal, secsToTime,
   shapesForRoute, allDeparturesForStopOnDate, headsignForStopOnRoute,
 } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
@@ -17,21 +17,32 @@ function escapeHtml(s) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
+/** Libellé du jour d'un passage futur (null si aujourd'hui) — "Demain" ou une date courte. */
+function dayLabel(dayOffset, date) {
+  if (dayOffset === 0) return null;
+  if (dayOffset === 1) return 'Demain';
+  return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 function buildDeparturesHtml(data, indices, stopId) {
-  const results = nextDeparturesForStop(data, indices, stopId, new Date(), nowSecsLocal(), 10);
+  const results = nextDeparturesForStopMultiDay(data, indices, stopId, new Date(), nowSecsLocal(), 6);
   if (!results.length) {
-    return `<p class="text-muted">Aucun autre passage prévu aujourd'hui à cet arrêt.</p>`;
+    return `<p class="text-muted">Aucun autre passage prévu prochainement à cet arrêt.</p>`;
   }
   return `
     <div class="arret-deps-list">
       ${results.map((r) => {
         const type = routeType(r.route?.route_type);
         const { bg, text } = routeColors(r.route, type);
+        const label = dayLabel(r.dayOffset, r.date);
         return `
           <button type="button" class="card arret-dep-row" data-trip-id="${escapeHtml(r.trip.trip_id)}">
             <span class="line-pill" style="background:${bg};color:${text};">${escapeHtml(r.route?.route_short_name || '?')}</span>
             <span class="arret-dep-headsign">${escapeHtml(r.trip.trip_headsign || '')}</span>
-            <span class="mono arret-dep-time">${secsToTime(r.depSecs)}</span>
+            <span class="arret-dep-time-col">
+              ${label ? `<span class="arret-dep-daylabel">${escapeHtml(label)}</span>` : ''}
+              <span class="mono arret-dep-time">${secsToTime(r.depSecs)}</span>
+            </span>
           </button>`;
       }).join('')}
     </div>`;
@@ -88,7 +99,9 @@ export async function render({ params }) {
       }
       .arret-dep-row:hover { background: var(--color-surface-alt); }
       .arret-dep-headsign { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink-soft); }
-      .arret-dep-time { flex-shrink: 0; font-weight: 600; }
+      .arret-dep-time-col { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+      .arret-dep-daylabel { font-size: var(--fs-eyebrow); font-weight: 600; color: var(--color-blue); text-transform: uppercase; letter-spacing: .04em; }
+      .arret-dep-time { font-weight: 600; }
       .arret-schedule-group { margin-bottom: var(--sp-4); }
       .arret-schedule-group-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
       .arret-schedule-times { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
