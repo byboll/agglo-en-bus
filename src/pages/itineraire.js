@@ -385,7 +385,7 @@ function initItineraire(root, data, indices) {
     map = L.map(mapEl, { attributionControl: true });
     L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
     vehicleLayerRef.layer = createVehicleLayer(map, {
-      onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+      onVehicleClick: (tripId) => openTripModal(data, indices, { tripId, highlightPast: true }),
     });
     return map;
   }

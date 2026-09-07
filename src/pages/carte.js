@@ -49,12 +49,6 @@ function initCarte(root, data, indices) {
     maxZoom: 19,
   }).addTo(map);
 
-  // Pane dédiée aux arrêts, au-dessus de celle des tracés (overlayPane, z-index 400) — garantit
-  // que les arrêts restent visuellement par-dessus les tracés quel que soit l'ordre dans lequel
-  // les calques sont ajoutés/retirés au fil du filtrage.
-  map.createPane('stopsPane');
-  map.getPane('stopsPane').style.zIndex = 450;
-
   // Tracés par ligne -----------------------------------------------------
   const sortedRoutes = sortRoutes(data.routes);
   const routeLayers = {}; // route_id -> L.LayerGroup
@@ -102,11 +96,11 @@ function initCarte(root, data, indices) {
 
     // Zone tactile élargie et invisible, superposée au picto : sur mobile un rayon de 5px est
     // trop petit à taper précisément. Le picto visible garde sa taille (voir marker plus bas).
-    const hitMarker = L.circleMarker(point, { radius: 14, stroke: false, fill: true, fillOpacity: 0, pane: 'stopsPane' })
+    const hitMarker = L.circleMarker(point, { radius: 14, stroke: false, fill: true, fillOpacity: 0 })
       .bindPopup(popupHtml);
 
     const marker = L.circleMarker(point, {
-      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1, pane: 'stopsPane',
+      radius: 5, weight: 1.5, color: '#101024', fillColor: '#ffffff', fillOpacity: 1,
     }).bindPopup(popupHtml);
 
     stopEntries.push({ routeIds, hitMarker, marker });
@@ -126,6 +120,10 @@ function initCarte(root, data, indices) {
         stopsLayer.removeLayer(entry.marker);
       }
     }
+    // Un calque de ligne réactivé (case recochée) est ré-ajouté à la carte et se retrouve donc
+    // au-dessus des arrêts déjà en place (même pane que les arrêts, dernier ajouté = au-dessus) :
+    // on remet systématiquement les arrêts au premier plan après toute bascule.
+    stopsLayer.eachLayer((l) => l.bringToFront());
   }
 
   const bounds = L.latLngBounds(stopsWithCoords.map((s) => [+s.stop_lat, +s.stop_lon]));
@@ -133,7 +131,7 @@ function initCarte(root, data, indices) {
 
   // Véhicules en circulation — uniquement sur les lignes actuellement cochées dans le filtre.
   const vehicleLayer = createVehicleLayer(map, {
-    onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+    onVehicleClick: (tripId) => openTripModal(data, indices, { tripId, highlightPast: true }),
   });
   const updateVehicles = () => {
     const visibleRouteIds = [...filterListEl.querySelectorAll('input[type="checkbox"]:checked')]
@@ -213,6 +211,11 @@ function initCarte(root, data, indices) {
     if (sizeCheckDone || cleaned) return;
     sizeCheckDone = true;
     map.invalidateSize();
+    // Si la taille au montage était fausse, les tracés/arrêts déjà ajoutés peuvent être restés
+    // projetés sur l'ancienne (mauvaise) taille : on refait un cadrage et un rafraîchissement
+    // complet une fois la taille réelle du conteneur connue.
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+    updateStopsVisibility();
   };
   requestAnimationFrame(fixSize);
   const sizeTimer = setTimeout(fixSize, 200);

@@ -2,7 +2,7 @@
 // et la page Itinéraire (clic sur un trajet en transport en commun proposé). Montée UNE SEULE
 // FOIS dans la coquille de l'app (voir mountTripModal(), appelée depuis main.js) ; les pages
 // l'ouvrent simplement via openTripModal(...).
-import { routeColors, secsToTime, timeToSecs, realtimeStatusForStop, realtimeBadgeHtml } from '../gtfs/helpers.js';
+import { routeColors, secsToTime, timeToSecs, realtimeStatusForStop, realtimeBadgeHtml, nowSecsLocal } from '../gtfs/helpers.js';
 import { routeType } from '../gtfs/config.js';
 
 let rootEl = null;
@@ -54,11 +54,14 @@ export function closeTripModal() {
 /**
  * @param {object} data - state.data du store GTFS
  * @param {object} indices - state.indices du store GTFS
- * @param {{tripId:string, boardStopId?:string, alightStopId?:string}} opts
+ * @param {{tripId:string, boardStopId?:string, alightStopId?:string, highlightPast?:boolean}} opts
  *   boardStopId/alightStopId : si fournis, mettent en avant la portion effectivement empruntée
  *   (montée → descente) plutôt que le trajet complet de la course.
+ *   highlightPast : si vrai (course ouverte depuis le clic sur un véhicule sur une carte, où l'on
+ *   ne connaît pas de portion empruntée précise), grise les arrêts déjà passés par rapport à
+ *   l'heure actuelle plutôt que d'utiliser la logique montée/descente ci-dessus.
  */
-export function openTripModal(data, indices, { tripId, boardStopId, alightStopId } = {}) {
+export function openTripModal(data, indices, { tripId, boardStopId, alightStopId, highlightPast = false } = {}) {
   if (!rootEl) mountTripModal();
   const trip = indices.tripsById[tripId];
   const sts = (data.stopTimes[tripId] || []).slice().sort((a, b) => a.seq - b.seq);
@@ -77,18 +80,20 @@ export function openTripModal(data, indices, { tripId, boardStopId, alightStopId
 
   const hasRange = !!(boardStopId || alightStopId);
   let inRange = !hasRange;
+  const nowSecs = highlightPast ? nowSecsLocal() : null;
   const rows = sts.map((st) => {
     const stop = indices.stopsById[st.stop_id];
     const isBoard = hasRange && st.stop_id === boardStopId;
     const isAlight = hasRange && st.stop_id === alightStopId;
     if (isBoard) inRange = true;
-    const active = !hasRange || inRange;
+    const activeByRange = !hasRange || inRange;
     if (isAlight) inRange = false;
     const staticSecs = timeToSecs(st.dep || st.arr || '');
     const rtStatus = realtimeStatusForStop(tripId, st.stop_id);
     const isVoid = rtStatus.status === 'skipped' || rtStatus.status === 'cancelled';
     const voidTitle = rtStatus.status === 'cancelled' ? 'Course annulée' : 'Arrêt supprimé pour cette course';
     const secs = rtStatus.status === 'realtime' ? (rtStatus.depSecs ?? rtStatus.arrSecs) : staticSecs;
+    const active = highlightPast ? isVoid || secs >= nowSecs : activeByRange;
     return `
       <li class="trip-modal-row${active ? ' is-active' : ''}${isBoard ? ' is-board' : ''}${isAlight ? ' is-alight' : ''}">
         <span class="trip-modal-dot" aria-hidden="true"></span>

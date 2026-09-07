@@ -257,7 +257,7 @@ export async function render({ params }) {
             stops: stopsForMap,
             highlightColor: bg,
             onStopClick: (stopId) => navigate(`/arrets/${stopId}`),
-            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId, highlightPast: true }),
           });
           updateVehicles();
 

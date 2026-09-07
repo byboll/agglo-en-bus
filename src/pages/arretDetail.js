@@ -207,7 +207,7 @@ export async function render({ params }) {
               return { lines: shapesForRoute(data, route.route_id), color: bg };
             }),
             stops: [{ id: stop.stop_id, name: stop.stop_name, lat: +stop.stop_lat, lon: +stop.stop_lon }],
-            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId }),
+            onVehicleClick: (tripId) => openTripModal(data, indices, { tripId, highlightPast: true }),
           });
           mapApi.highlightStop(stop.stop_id);
         } else {
